@@ -42,14 +42,14 @@ class SystemMonitorProcess(mp.Process):
 
         self.control_queue = control_queue
         self.running = True
-        self.interval = 5  # seconds between updates
+        self.interval = 10  # seconds between updates
         self.history = {
-            "cpu": deque(maxlen=60),
-            "memory": deque(maxlen=60),
-            "network": deque(maxlen=60),
-            "disk": deque(maxlen=60),
-            "process_count": deque(maxlen=60),
-            "user_logins": deque(maxlen=60),
+            "cpu": deque(maxlen=30),
+            "memory": deque(maxlen=30),
+            "network": deque(maxlen=30),
+            "disk": deque(maxlen=30),
+            "process_count": deque(maxlen=30),
+            "user_logins": deque(maxlen=30),
         }
         self.anomaly_thresholds = {
             "cpu": 90,
@@ -62,10 +62,10 @@ class SystemMonitorProcess(mp.Process):
         self.file_hashes = {}
         self.sensitive_keywords = ["confidential", "password", "secret"]
         self._dns_cache = OrderedDict()
-        self._dns_cache_max_size = 1000
-        self._dns_cache_ttl = 3600  # 1 hour
+        self._dns_cache_max_size = 100
+        self._dns_cache_ttl = 7200  # 1 hour
         self._dns_lock = mp.Lock()
-        self._max_file_size = 250 * 1024 * 1024  # 250MB
+        self._max_file_size = 100 * 1024 * 1024  # 250MB
 
         # File hash calculation parameters
         self._hash_buffer_size = 65536
@@ -98,46 +98,19 @@ class SystemMonitorProcess(mp.Process):
             except Exception as e:
                 logger.error(f"Monitoring error: {e}")
                 time.sleep(1)
-
     def _calculate_file_hash(self, file_path: str) -> Optional[Dict[str, str]]:
-        """Safe file hashing with large file support and error handling"""
-        if os.path.isdir(file_path):
-            logger.warning(f"Skipping directory: {file_path}")
+        """Lightweight file info collection without expensive hashing"""
+        if os.path.isdir(file_path) or not os.path.exists(file_path):
             return None
-        if not os.path.exists(file_path):
-            logger.warning(f"File not found: {file_path}")
-            return None
-
+        
         try:
             file_size = os.path.getsize(file_path)
-            if file_size > self._max_file_size:
-                logger.warning(
-                    f"File too large for hashing: {file_path} ({file_size/1024/1024:.2f}MB)"
-                )
-                return None
-
-            sha256 = hashlib.sha256()
-            md5 = hashlib.md5()
-
-            with open(file_path, "rb") as f:
-                while chunk := f.read(self._hash_buffer_size):
-                    sha256.update(chunk)
-                    md5.update(chunk)
-
             return {
-                "sha256": sha256.hexdigest(),
-                "md5": md5.hexdigest(),
                 "file_size": file_size,
                 "last_modified": os.path.getmtime(file_path),
+                "path": file_path,
             }
-        except PermissionError:
-            logger.warning(f"Permission denied accessing {file_path}")
-            return None
-        except OSError as e:
-            logger.error(f"File access error: {str(e)}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected hashing error: {str(e)}")
+        except (PermissionError, OSError):
             return None
 
     def _resolve_dns(self, ip: str) -> Optional[str]:
@@ -415,7 +388,7 @@ class SystemMonitorProcess(mp.Process):
                 continue
 
         return sorted(processes, key=lambda p: p["cpu"], reverse=True)[
-            :50
+            :10
         ]  # Top 50 by CPU
 
     # Add to SystemMonitorProcess class
@@ -474,16 +447,23 @@ class SystemMonitorProcess(mp.Process):
         }
 
     def _check_system_files(self) -> Dict:
-        """Monitor critical system files"""
+        """Monitor critical system files without expensive hashing"""
         targets = {
-            "Windows": [r"C:\Windows\System32\*.dll", r"C:\Windows\System32\*.exe"],
-            "Linux": ["/bin/*", "/usr/bin/*", "/sbin/*"],
+            "Windows": [r"C:\Windows\System32"],
+            "Linux": ["/bin", "/usr/bin", "/sbin"],
         }
-        return {
-            fpath: self._calculate_file_hash(fpath)
-            for pattern in targets.get(platform.system(), [])
-            for fpath in glob.glob(pattern)
-        }
+        
+        # Just return directory existence and count instead of hashing all files
+        result = {}
+        for directory in targets.get(platform.system(), []):
+            if os.path.exists(directory):
+                try:
+                    file_count = len([f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))])
+                    result[directory] = {"file_count": file_count, "exists": True}
+                except PermissionError:
+                    result[directory] = {"exists": True, "accessible": False}
+        
+        return result
 
     def _get_security_status(self) -> Dict:
         """Get security-related status information"""

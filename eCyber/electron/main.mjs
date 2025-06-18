@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog } from 'electron'; // Added dialog
+import { app, BrowserWindow, dialog } from 'electron';
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -21,10 +21,22 @@ const createWindow = () => {
   });
 
   if (isDev) {
+    const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+    console.log('[ElectronMain] PROD mode: Loading frontend from:', indexPath);
+
+    if (fs.existsSync(indexPath)) {
+      mainWindow.loadFile(indexPath);
+    } else {
+      dialog.showErrorBox(
+        'Frontend Error',
+        `Built frontend file not found: ${indexPath}`
+      );
+    }
+  } else {
+    
+    console.log('[ElectronMain] DEV mode: Loading frontend from dev server');
     mainWindow.loadURL('http://localhost:4000');
     mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
 };
 
@@ -32,9 +44,11 @@ const startBackend = () => {
   const backendExeName = process.platform === 'win32' ? 'backend_server.exe' : 'backend_server';
   const prodBackendPath = path.join(process.resourcesPath, 'backend', backendExeName);
   const devBackendScript = path.join(__dirname, '..', '..', 'backend', 'loader.py');
-  const devPythonInterpreter = path.join(__dirname, '..', '..', 'backend', 'venv', 'Scripts', 'python.exe'); // Windows specific
+  const devPythonInterpreter = path.join(__dirname, '..', '..', 'backend', 'venv', 'bin', 'python'); // Windows specific
 
   if (!isDev) {
+    console.log('[ElectronMain] Looking for backend at:', prodBackendPath);
+
     if (fs.existsSync(prodBackendPath)) {
       console.log(`[ElectronMain] Starting packaged backend: ${prodBackendPath}`);
       backendProcess = spawn(prodBackendPath, [], { detached: false });
@@ -43,17 +57,18 @@ const startBackend = () => {
       dialog.showErrorBox('Backend Error', `Packaged backend not found. Expected at: ${prodBackendPath}`);
       return;
     }
-  } else { // isDev
+  } else {
     if (fs.existsSync(devPythonInterpreter) && fs.existsSync(devBackendScript)) {
       console.log(`[ElectronMain] Starting backend script with: ${devPythonInterpreter} ${devBackendScript}`);
-      backendProcess = spawn(devPythonInterpreter, [devBackendScript]);
+      backendProcess = spawn(devPythonInterpreter, [devBackendScript], {
+    cwd: path.resolve(__dirname, '..', '..', 'backend'),
+    });
+
     } else {
       const pyExists = fs.existsSync(devPythonInterpreter);
       const scriptExists = fs.existsSync(devBackendScript);
-      console.error(`[ElectronMain] Development backend script or Python interpreter not found. Python: ${devPythonInterpreter} (exists: ${pyExists}), Script: ${devBackendScript} (exists: ${scriptExists})`);
-      dialog.showErrorBox('Backend Error', `Development backend script or Python interpreter not found. Please check paths.
-Python: ${devPythonInterpreter} (exists: ${pyExists})
-Script: ${devBackendScript} (exists: ${scriptExists})`);
+      console.error(`[ElectronMain] Dev backend or Python missing. Python: ${devPythonInterpreter} (exists: ${pyExists}), Script: ${devBackendScript} (exists: ${scriptExists})`);
+      dialog.showErrorBox('Backend Error', `Development backend or Python not found.\nPython: ${devPythonInterpreter}\nScript: ${devBackendScript}`);
       return;
     }
   }
@@ -68,16 +83,16 @@ Script: ${devBackendScript} (exists: ${scriptExists})`);
     });
 
     backendProcess.on('close', (code) => {
-      console.log(`[ElectronMain] Backend process exited with code ${code}`);
+      console.log(`[ElectronMain] Backend exited with code ${code}`);
       backendProcess = null;
-      if (!isDev && code !== 0) { // Optional: Notify only for packaged app errors
-        dialog.showErrorBox('Backend Error', `Backend process exited unexpectedly with code ${code}. Please restart the application.`);
+      if (!isDev && code !== 0) {
+        dialog.showErrorBox('Backend Error', `Backend process exited with code ${code}.`);
       }
     });
 
     backendProcess.on('error', (err) => {
-      console.error(`[ElectronMain] Failed to start backend process: ${err.message}`);
-      dialog.showErrorBox('Backend Error', `Failed to start backend process: ${err.message}`);
+      console.error(`[ElectronMain] Backend start failed: ${err.message}`);
+      dialog.showErrorBox('Backend Error', `Backend failed to start: ${err.message}`);
       backendProcess = null;
     });
   }
@@ -94,14 +109,13 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.quit(); // This will trigger 'quit' event
+    app.quit();
   }
 });
 
 app.on('quit', () => {
   if (backendProcess) {
-    console.log('[ElectronMain] Attempting to kill backend process on quit...');
-    backendProcess.kill(); // SIGTERM by default
-    console.log('[ElectronMain] Backend process kill signal sent.');
+    console.log('[ElectronMain] Killing backend process...');
+    backendProcess.kill();
   }
 });

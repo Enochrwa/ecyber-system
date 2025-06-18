@@ -101,3 +101,43 @@
 2025-06-13 09:03:37 - main - INFO - Initializing background services...
 2025-06-13 09:03:45 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
 2025-06-13 09:05:09 - main - INFO - System monitoring started
+2025-06-16 09:45:31 - main - INFO - Database initialized successfully
+2025-06-16 09:45:36 - main - INFO - 🚀 Starting eCyber Security System
+2025-06-16 09:45:36 - main - INFO - Initializing background services...
+2025-06-16 09:45:36 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-06-16 08:45:28 - main - INFO - System monitoring started
+2025-06-16 09:56:22 - main - INFO - 🛑 Gracefully shutting down...
+2025-06-16 10:12:12 - main - INFO - Database initialized successfully
+2025-06-16 10:12:17 - main - INFO - 🚀 Starting eCyber Security System
+2025-06-16 10:12:17 - main - INFO - Initializing background services...
+2025-06-16 10:12:18 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-06-16 10:12:31 - main - INFO - System monitoring started
+2025-06-16 20:09:45 - main - INFO - Database initialized successfully
+2025-06-16 20:09:48 - main - INFO - 🚀 Starting eCyber Security System
+2025-06-16 20:09:48 - main - INFO - Initializing background services...
+2025-06-16 20:09:48 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-06-16 20:10:10 - main - INFO - System monitoring started
+2025-06-17 14:09:54 - main - INFO - Database initialized successfully
+2025-06-17 14:09:55 - main - INFO - 🚀 Starting eCyber Security System
+2025-06-17 14:09:55 - main - INFO - Initializing background services...
+2025-06-17 14:09:55 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-06-17 14:10:00 - main - INFO - System monitoring started
+2025-06-17 14:15:15 - main - INFO - User started sniffing on lo
+2025-06-17 15:17:42 - main - INFO - 🛑 Gracefully shutting down...
+2025-06-18 17:32:41 - main - INFO - Database initialized successfully
+2025-06-18 17:32:42 - main - INFO - 🚀 Starting eCyber Security System
+2025-06-18 17:32:42 - main - INFO - Initializing background services...
+2025-06-18 17:32:42 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-06-18 17:32:53 - main - INFO - System monitoring started
+2025-06-18 16:34:44 - main - INFO - User stopped sniffing
+2025-06-18 16:34:44 - main - INFO - Stopping PacketSniffer...
+2025-06-18 16:34:44 - main - INFO - PacketSniffer stopped.
+2025-06-18 17:35:10 - main - INFO - User started sniffing on enp0s3
+2025-06-18 17:36:16 - main - INFO - User stopped sniffing
+2025-06-18 17:36:16 - main - INFO - Stopping PacketSniffer...
+2025-06-18 17:36:22 - main - INFO - PacketSniffer stopped.
+2025-06-18 17:36:37 - main - INFO - User started sniffing on enp0s3
+2025-06-18 17:44:47 - main - INFO - User stopped sniffing
+2025-06-18 17:44:48 - main - INFO - Stopping PacketSniffer...
+2025-06-18 18:45:36 - main - INFO - PacketSniffer stopped.
+2025-06-18 18:54:47 - main - INFO - 🛑 Gracefully shutting down...

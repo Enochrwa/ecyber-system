@@ -275,7 +275,7 @@ export function SystemDashboard() {
           <div className="flex items-center gap-3">
             <div className="text-sm text-muted-foreground">
               {lastUpdate ? (
-                <span>Last updated: {lastUpdate.toLocaleTimeString()}</span>
+                <span>Last updated: {new Date().toLocaleTimeString()}</span>
               ) : (
                 <span>Waiting for data...</span>
               )}

@@ -4,3 +4,5 @@ dist
 _pycache
 main.spec
 routes.txt
+**/__pycache__/
+**/*.py[cod]
