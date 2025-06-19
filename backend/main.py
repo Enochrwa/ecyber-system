@@ -31,6 +31,13 @@ from app.services.system.monitor import SystemMonitor
 
 # from app.services.system.malware_detection import activate_cyber_defense
 
+# SIEM Integration
+from app.api.siem_api import initialize_siem_manager, router as siem_router
+from app.services.siem.siem_integration import SIEMManager
+
+# Performance Optimization
+from app.services.performance.optimizer import PerformanceOptimizer
+from app.services.performance.database_optimizer import DatabaseOptimizer
 
 # Database
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -68,6 +75,11 @@ from app.services.detection.signature import SignatureEngine
 # from app.services.detection.ids_signature import IdsSignatureEngine
 from app.services.ips.engine import EnterpriseIPS, ThreatIntel
 
+# Enhanced Security Components
+from app.services.ips.enhanced_blocker import EnhancedIPBlocker
+from app.services.ips.signature_detection import AdvancedSignatureEngine
+from app.services.ips.phishing_blocker import AdvancedPhishingBlocker
+
 # from app.services.ips.adapter import IPSPacketAdapter
 from app.services.prevention.firewall import FirewallManager
 
@@ -93,6 +105,12 @@ sniffer = None
 sniffer_service = None
 startup_start_time = time.time()
 server_ready_emitted = False
+
+# Enhanced Security Components
+enhanced_ip_blocker = None
+signature_engine = None
+phishing_blocker = None
+
 ###VULNERABILITY
 # scanner = VulnerabilityScanner(sio)
 # val_blocker = ThreatBlocker(sio)
@@ -132,6 +150,126 @@ async def create_app() -> FastAPI:
         # ids_signature_engine = IdsSignatureEngine(sio)
         # blocker = ApplicationBlocker(sio)
 
+        # Initialize Enhanced Security Components
+        global enhanced_ip_blocker, advanced_sig_engine, phishing_blocker
+        
+        # Enhanced IP Blocker
+        enhanced_ip_blocker = EnhancedIPBlocker({
+            'db_path': 'data/blocked_ips.db',
+            'vlan_isolation_enabled': True
+        })
+        await enhanced_ip_blocker.start()
+        logger.info("Enhanced IP Blocker initialized")
+        
+        # Advanced Signature Engine
+        advanced_sig_engine = AdvancedSignatureEngine({
+            'signature_db_path': 'data/signatures.db',
+            'signature_sources': [
+                {
+                    'type': 'custom_json',
+                    'url': 'https://raw.githubusercontent.com/emergingthreats/rules/master/rules/emerging-threats.json',
+                    'source': 'emerging_threats'
+                }
+            ],
+            'update_interval': 3600
+        })
+        await advanced_sig_engine.start()
+        logger.info("Advanced Signature Engine initialized")
+        
+        # Advanced Phishing Blocker
+        phishing_blocker = AdvancedPhishingBlocker({
+            'phishing_db_path': 'data/phishing.db',
+            'threat_feeds': [
+                {
+                    'type': 'json',
+                    'url': 'https://openphish.com/feed.txt',
+                    'source': 'openphish'
+                }
+            ],
+            'update_interval': 1800,
+            'content_analysis_enabled': True,
+            'block_threshold': 0.7
+        })
+        await phishing_blocker.start()
+        logger.info("Advanced Phishing Blocker initialized")
+
+        # Initialize SIEM Integration
+        global siem_manager
+        siem_config = {
+            'elasticsearch': {
+                'elasticsearch_hosts': ['localhost:9200'],
+                'username': None,
+                'password': None,
+                'use_ssl': False,
+                'verify_certs': False,
+                'index_prefix': 'aurore-siem',
+                'batch_size': 100,
+                'flush_interval': 30
+            },
+            'kibana': {
+                'kibana_url': 'http://localhost:5601',
+                'username': None,
+                'password': None,
+                'space_id': 'default'
+            }
+        }
+        
+        try:
+            siem_manager = initialize_siem_manager(siem_config)
+            await siem_manager.start()
+            logger.info("SIEM Integration initialized successfully")
+        except Exception as e:
+            logger.warning(f"SIEM Integration failed to start: {e}")
+            logger.warning("Continuing without SIEM - install Elasticsearch and Kibana for full functionality")
+
+        # Initialize Performance Optimization
+        global performance_optimizer, database_optimizer
+        
+        performance_config = {
+            'monitoring': {
+                'monitoring_interval': 30,
+                'history_size': 1000,
+                'cpu_threshold': 80.0,
+                'memory_threshold': 85.0,
+                'disk_threshold': 90.0
+            }
+        }
+        
+        database_config = {
+            'optimization_interval': 300,  # 5 minutes
+            'database_pools': {
+                'default': {
+                    'url': settings.DATABASE_URL,
+                    'min_size': 5,
+                    'max_size': 20,
+                    'max_queries': 50000,
+                    'max_inactive_connection_lifetime': 300,
+                    'query_optimizer': {
+                        'slow_query_threshold': 1.0
+                    }
+                }
+            },
+            'redis_pools': {
+                'default': {
+                    'url': getattr(settings, 'REDIS_URL', 'redis://localhost:6379'),
+                    'max_connections': 20
+                }
+            }
+        }
+        
+        try:
+            performance_optimizer = PerformanceOptimizer(performance_config)
+            await performance_optimizer.start()
+            logger.info("Performance optimizer initialized successfully")
+            
+            database_optimizer = DatabaseOptimizer(database_config)
+            await database_optimizer.start()
+            logger.info("Database optimizer initialized successfully")
+            
+        except Exception as e:
+            logger.warning(f"Performance optimization failed to start: {e}")
+            logger.warning("Continuing without performance optimization")
+
         # Initialize packet components INDEPENDENTLY
         global sniffer, sniffer_service, manager
         manager = Manager()
@@ -157,6 +295,10 @@ async def create_app() -> FastAPI:
             num_workers,
             sio_queue,
             output_queue,
+            enhanced_ip_blocker=enhanced_ip_blocker,
+            signature_engine=advanced_sig_engine,
+            phishing_blocker=phishing_blocker,
+            siem_manager=siem_manager
         )
 
         sniffer = PacketSniffer(sio_queue)
@@ -181,6 +323,9 @@ async def create_app() -> FastAPI:
 
         app.state.firewall = firewall
         app.state.signature_engine = signature_engine
+        app.state.enhanced_ip_blocker = enhanced_ip_blocker
+        app.state.advanced_signature_engine = advanced_sig_engine
+        app.state.phishing_blocker = phishing_blocker
         # app.state.ids_signature_engine = ids_signature_engine
         # app.state.phishing_blocker = (
         #     phishing_blocker  # Store PhishingBlocker in app state
@@ -227,6 +372,33 @@ async def create_app() -> FastAPI:
         finally:
             # Shutdown tasks
             logger.info("🛑 Gracefully shutting down...")
+
+            # Shutdown enhanced security components
+            if enhanced_ip_blocker:
+                await enhanced_ip_blocker.stop()
+                logger.info("Enhanced IP Blocker stopped")
+            
+            if advanced_sig_engine:
+                await advanced_sig_engine.stop()
+                logger.info("Advanced Signature Engine stopped")
+            
+            if phishing_blocker:
+                await phishing_blocker.stop()
+                logger.info("Advanced Phishing Blocker stopped")
+            
+            # Shutdown SIEM Integration
+            if siem_manager:
+                await siem_manager.stop()
+                logger.info("SIEM Integration stopped")
+            
+            # Shutdown Performance Optimization
+            if performance_optimizer:
+                await performance_optimizer.stop()
+                logger.info("Performance optimizer stopped")
+            
+            if database_optimizer:
+                await database_optimizer.stop()
+                logger.info("Database optimizer stopped")
 
             # if hasattr(app.state, "phishing_blocker") and app.state.phishing_blocker:
             #     logger.info("Stopping PhishingBlocker...")
@@ -290,6 +462,7 @@ async def create_app() -> FastAPI:
     app.include_router(intel_router, prefix="/intel")
     app.include_router(nac_router, prefix="/nac")
     app.include_router(dns_router, prefix="/dns")
+    app.include_router(siem_router, prefix="/api", tags=["SIEM"])  # SIEM Integration
     # Include the ML Models API router
 
     # Health check endpoint

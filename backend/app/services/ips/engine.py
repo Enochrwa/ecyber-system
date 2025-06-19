@@ -39,6 +39,13 @@ import heapq
 
 from ...core.config import settings # Import the global settings
 
+# SIEM Integration
+try:
+    from ..siem.siem_integration import SecurityEvent
+except ImportError:
+    # Fallback if SIEM is not available
+    SecurityEvent = None
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("enterprise_ips")
@@ -2107,12 +2114,100 @@ class MitigationEngine:
     async def _log_to_external_systems(
         self, ip: str, match: RuleMatchResult, action: str
     ) -> None:
-        """Placeholder for logging to external systems like ELK, Splunk."""
-        logger.info(
-            f"Placeholder: Logging event to external system for IP {ip}, action {action}, rule {match.rule_id}"
-        )
-        # Example: self.external_logger.log({...details...})
-        pass
+        """Log security events to external systems including SIEM."""
+        try:
+            # Log to SIEM if available
+            if self.siem_manager and SecurityEvent:
+                # Determine event severity based on rule severity and action
+                severity_mapping = {
+                    'critical': 'critical',
+                    'high': 'high', 
+                    'medium': 'medium',
+                    'low': 'low',
+                    'info': 'info'
+                }
+                
+                severity = severity_mapping.get(match.severity.lower(), 'medium')
+                
+                # Create security event
+                event = SecurityEvent(
+                    id="",  # Will be auto-generated
+                    timestamp=datetime.now(timezone.utc),
+                    event_type="threat",
+                    severity=severity,
+                    source="enterprise_ips",
+                    source_ip=ip,
+                    action=action,
+                    outcome="success" if action in ["blocked", "quarantined"] else "detected",
+                    message=f"IPS {action}: {match.rule_name} triggered for IP {ip}",
+                    details={
+                        "rule_id": match.rule_id,
+                        "rule_name": match.rule_name,
+                        "rule_category": getattr(match, 'category', 'unknown'),
+                        "confidence": match.confidence,
+                        "packet_info": getattr(match, 'packet_info', {}),
+                        "action_taken": action,
+                        "detection_method": "signature_based"
+                    },
+                    tags=["ips", "threat_detection", match.rule_name.lower().replace(" ", "_")]
+                )
+                
+                # Log to SIEM asynchronously
+                await self.siem_manager.log_event(event)
+                
+            # Log to traditional logging system
+            logger.info(
+                f"Security event logged: IP {ip}, action {action}, rule {match.rule_id} ({match.rule_name})"
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to log to external systems: {e}")
+
+    async def _log_network_event(self, packet_info: Dict[str, Any], event_type: str = "network"):
+        """Log network events to SIEM"""
+        try:
+            if self.siem_manager and SecurityEvent:
+                event = SecurityEvent(
+                    id="",
+                    timestamp=datetime.now(timezone.utc),
+                    event_type=event_type,
+                    severity="info",
+                    source="enterprise_ips",
+                    source_ip=packet_info.get('src_ip'),
+                    dest_ip=packet_info.get('dst_ip'),
+                    action="monitor",
+                    outcome="success",
+                    message=f"Network traffic: {packet_info.get('src_ip')} -> {packet_info.get('dst_ip')}",
+                    details=packet_info,
+                    tags=["network", "traffic_monitoring"]
+                )
+                
+                await self.siem_manager.log_event(event)
+                
+        except Exception as e:
+            logger.error(f"Failed to log network event to SIEM: {e}")
+
+    async def _log_security_alert(self, alert_type: str, severity: str, message: str, details: Dict[str, Any] = None):
+        """Log security alerts to SIEM"""
+        try:
+            if self.siem_manager and SecurityEvent:
+                event = SecurityEvent(
+                    id="",
+                    timestamp=datetime.now(timezone.utc),
+                    event_type="alert",
+                    severity=severity,
+                    source="enterprise_ips",
+                    action="alert",
+                    outcome="success",
+                    message=message,
+                    details=details or {},
+                    tags=["alert", alert_type]
+                )
+                
+                await self.siem_manager.log_event(event)
+                
+        except Exception as e:
+            logger.error(f"Failed to log security alert to SIEM: {e}")
 
 
 class IPSWorker(multiprocessing.Process):
@@ -2298,12 +2393,22 @@ class EnterpriseIPS:
         num_workers: int = multiprocessing.cpu_count(),
         input_queue: Optional[Queue] = None, # Added Optional
         output_queue: Optional[Queue] = None, # Added Optional
-        ips_config: Optional[Dict[str, Any]] = None # Added ips_config
+        ips_config: Optional[Dict[str, Any]] = None, # Added ips_config
+        enhanced_ip_blocker=None,  # Enhanced IP blocking system
+        signature_engine=None,     # Advanced signature detection engine
+        phishing_blocker=None,     # Advanced phishing blocker
+        siem_manager=None          # SIEM integration manager
     ):
         self.rule_file = rule_file
         self.sio = sio
         self.num_workers = num_workers
         self.config = ips_config if ips_config is not None else {} # Define self.config early
+
+        # Enhanced Security Components
+        self.enhanced_ip_blocker = enhanced_ip_blocker
+        self.signature_engine = signature_engine
+        self.phishing_blocker = phishing_blocker
+        self.siem_manager = siem_manager  # SIEM integration
 
         self.threat_intel = threat_intel
         if self.threat_intel is None:
@@ -2450,8 +2555,11 @@ class EnterpriseIPS:
                 # However, PacketProcessor is designed to also process packets, not just create context.
                 # Let's assume we need a PacketProcessor instance here for context creation or other logic.
                 # This PacketProcessor should use the same rules as the workers.
-                temp_processor = PacketProcessor(self.processed_rules, self.threat_intel)
+                temp_processor = PacketProcessor(self.main_rule_manager, self.threat_intel)
                 context = temp_processor.create_packet_context(packet)
+
+                # Enhanced Security Processing
+                await self._enhanced_security_processing(packet, context, matches)
 
                 # Execute mitigation for each match
                 for match in matches:
@@ -2462,6 +2570,147 @@ class EnterpriseIPS:
             except Exception as e:
                 logger.error(f"Error processing results: {e}")
                 await asyncio.sleep(1)
+
+    async def _enhanced_security_processing(self, packet, context, matches):
+        """Enhanced security processing with advanced components"""
+        try:
+            # 1. Advanced Signature Detection
+            if self.signature_engine:
+                signature_matches = await self.signature_engine.detect_threats(
+                    context.payload, 
+                    context.src_ip, 
+                    context.dst_ip, 
+                    context.protocol or 'unknown'
+                )
+                
+                # Convert signature matches to rule matches and add to existing matches
+                for sig_match in signature_matches:
+                    rule_match = RuleMatchResult(
+                        rule_id=f"SIG_{sig_match.signature_id}",
+                        action="alert" if sig_match.severity in ['low', 'medium'] else "block",
+                        severity=sig_match.severity,
+                        category=sig_match.category,
+                        description=f"Signature Detection: {sig_match.signature_name}",
+                        confidence=sig_match.confidence,
+                        metadata={
+                            'signature_match': True,
+                            'matched_content': sig_match.matched_content,
+                            'signature_metadata': sig_match.metadata
+                        }
+                    )
+                    matches.append(rule_match)
+                    
+                    # Emit signature detection event
+                    await self.sio.emit("signature_detection", {
+                        "timestamp": sig_match.timestamp.isoformat(),
+                        "signature_id": sig_match.signature_id,
+                        "signature_name": sig_match.signature_name,
+                        "severity": sig_match.severity,
+                        "category": sig_match.category,
+                        "confidence": sig_match.confidence,
+                        "source_ip": sig_match.source_ip,
+                        "dest_ip": sig_match.dest_ip,
+                        "protocol": sig_match.protocol,
+                        "matched_content": sig_match.matched_content[:100]  # Truncate for safety
+                    })
+
+            # 2. Phishing Detection (for HTTP/HTTPS traffic)
+            if self.phishing_blocker and context.protocol in ['tcp'] and context.dst_port in [80, 443, 8080, 8443]:
+                # Extract URL from HTTP traffic (simplified)
+                url = self._extract_url_from_packet(context)
+                if url:
+                    phishing_detection = await self.phishing_blocker.check_url(url, context.src_ip)
+                    if phishing_detection:
+                        rule_match = RuleMatchResult(
+                            rule_id=f"PHISH_{phishing_detection.id}",
+                            action="block" if phishing_detection.blocked else "alert",
+                            severity=phishing_detection.severity,
+                            category="phishing",
+                            description=f"Phishing Detection: {url}",
+                            confidence=phishing_detection.confidence,
+                            metadata={
+                                'phishing_detection': True,
+                                'target_url': phishing_detection.target_url,
+                                'indicators': phishing_detection.indicators,
+                                'phishing_metadata': phishing_detection.metadata
+                            }
+                        )
+                        matches.append(rule_match)
+                        
+                        # Emit phishing detection event
+                        await self.sio.emit("phishing_detection", {
+                            "timestamp": phishing_detection.timestamp.isoformat(),
+                            "detection_id": phishing_detection.id,
+                            "target_url": phishing_detection.target_url,
+                            "source_ip": phishing_detection.source_ip,
+                            "severity": phishing_detection.severity,
+                            "confidence": phishing_detection.confidence,
+                            "indicators": phishing_detection.indicators,
+                            "blocked": phishing_detection.blocked
+                        })
+
+            # 3. Enhanced IP Blocking Check
+            if self.enhanced_ip_blocker:
+                # Check if source IP should be blocked based on behavior
+                if self.enhanced_ip_blocker.is_blocked(context.src_ip):
+                    rule_match = RuleMatchResult(
+                        rule_id="ENHANCED_IP_BLOCK",
+                        action="block",
+                        severity="high",
+                        category="ip_blocking",
+                        description=f"IP {context.src_ip} is in enhanced block list",
+                        confidence=1.0,
+                        metadata={
+                            'enhanced_ip_block': True,
+                            'blocked_ip': context.src_ip
+                        }
+                    )
+                    matches.append(rule_match)
+
+                # Auto-block IPs with multiple high-severity detections
+                high_severity_matches = [m for m in matches if m.severity in ['critical', 'high']]
+                if len(high_severity_matches) >= 3:  # Threshold for auto-blocking
+                    await self.enhanced_ip_blocker.block_ip(
+                        context.src_ip,
+                        "AUTO_BLOCK_MULTIPLE_THREATS",
+                        "high",
+                        f"Auto-blocked due to {len(high_severity_matches)} high-severity detections",
+                        duration_hours=24
+                    )
+                    
+                    # Emit auto-block event
+                    await self.sio.emit("auto_ip_block", {
+                        "timestamp": datetime.now().isoformat(),
+                        "ip": context.src_ip,
+                        "reason": "multiple_high_severity_detections",
+                        "detection_count": len(high_severity_matches),
+                        "duration_hours": 24
+                    })
+
+        except Exception as e:
+            logger.error(f"Error in enhanced security processing: {e}")
+
+    def _extract_url_from_packet(self, context):
+        """Extract URL from HTTP packet payload"""
+        try:
+            payload_str = context.payload.decode('utf-8', errors='ignore')
+            
+            # Look for HTTP GET/POST requests
+            lines = payload_str.split('\n')
+            for line in lines:
+                if line.startswith('GET ') or line.startswith('POST '):
+                    parts = line.split(' ')
+                    if len(parts) >= 2:
+                        path = parts[1]
+                        # Look for Host header
+                        for header_line in lines:
+                            if header_line.lower().startswith('host:'):
+                                host = header_line.split(':', 1)[1].strip()
+                                protocol = 'https' if context.dst_port in [443, 8443] else 'http'
+                                return f"{protocol}://{host}{path}"
+            return None
+        except Exception:
+            return None
 
     async def _report_stats(self):
         """Periodically report system statistics"""

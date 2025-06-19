@@ -38,6 +38,11 @@ import HttpActivityView from '../components/dashboard/HttpActivityView'; // Impo
 import DnsActivityView from '../components/dashboard/DnsActivityView';   // Import DNS Log View
 import { UserList } from '@/components/dashboard/UserList'; // Import the new component
 
+// Enhanced Dashboard Components
+import UnifiedAlertsComponent from '../components/dashboard/UnifiedAlertsComponent';
+import MLPredictionsDisplay from '../components/dashboard/MLPredictionsDisplay';
+import RealTimeThreatVisualization from '../components/dashboard/RealTimeThreatVisualization';
+
 // Mock data for activity stream - REMOVED
 
 // import { EmergingThreatDisplay } from './Threats'; // Assuming Threats.tsx exports this type
@@ -932,6 +937,17 @@ const Dashboard = () => {
                     ]
                   } 
                 />
+
+                {/* Enhanced Security Components */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+                  <UnifiedAlertsComponent />
+                  <RealTimeThreatVisualization />
+                </div>
+
+                {/* ML Predictions Display */}
+                <div className="mb-6">
+                  <MLPredictionsDisplay />
+                </div>
 
                 {/* Inserted AnomalyInsightsSection here */}
                 {/* <AnomalyInsightsSection /> */}

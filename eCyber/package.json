@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "vite",
     "build": "electron-builder",
-    "home-build":"vite build",
+    "home-build": "vite build",
     "start": "vite",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -105,7 +105,7 @@
     "globals": "^15.9.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.11",
-    "typescript": "^5.5.3",
+    "typescript": "^5.8.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1"
   },
@@ -117,7 +117,9 @@
       "output": "dist_electron",
       "buildResources": "build_assets"
     },
-    "asarUnpack": ["backend/**"],
+    "asarUnpack": [
+      "backend/**"
+    ],
     "files": [
       "electron/**/*",
       "dist/**/*",
@@ -127,20 +129,32 @@
       {
         "from": "../backend/dist/backend_server",
         "to": "backend",
-        "filter": ["backend_server.exe"]
+        "filter": [
+          "backend_server.exe"
+        ]
       }
     ],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "public/eCyber.ico"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "build_assets/icon.icns",
       "category": "public.app-category.security"
     },
     "linux": {
-      "target": ["AppImage", "deb", "rpm"],
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
       "icon": "build_assets/icon.png",
       "category": "Security",
       "maintainer": "ecyber corporations"
@@ -155,4 +169,3 @@
     }
   }
 }
-
