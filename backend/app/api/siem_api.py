@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 import logging
 
-from ..siem.siem_integration import SIEMManager, SecurityEvent
+from ..services.siem.siem_integration import SIEMManager, SecurityEvent
 
 logger = logging.getLogger(__name__)
 

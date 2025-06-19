@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from collections import defaultdict, deque
 import asyncpg
-import aioredis
+import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import QueuePool
 from sqlalchemy import text, event
@@ -285,26 +285,26 @@ class RedisConnectionPool:
     def __init__(self, redis_url: str, config: Dict[str, Any] = None):
         self.redis_url = redis_url
         self.config = config or {}
-        self.pool: Optional[aioredis.ConnectionPool] = None
-        self.redis: Optional[aioredis.Redis] = None
+        self.pool: Optional[redis.ConnectionPool] = None
+        self.redis: Optional[redis.Redis] = None
         
     async def initialize(self):
         """Initialize Redis connection pool"""
         try:
-            self.pool = aioredis.ConnectionPool.from_url(
+            self.pool = redis.ConnectionPool.from_url(
                 self.redis_url,
                 max_connections=self.config.get('max_connections', 20),
                 retry_on_timeout=True,
                 health_check_interval=30
             )
-            
-            self.redis = aioredis.Redis(connection_pool=self.pool)
-            
+
+            self.redis = redis.Redis(connection_pool=self.pool)
+
             # Test connection
             await self.redis.ping()
-            
+
             logger.info("Redis connection pool initialized")
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize Redis connection pool: {e}")
             raise
