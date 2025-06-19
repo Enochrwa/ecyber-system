@@ -181,7 +181,7 @@ async def create_app() -> FastAPI:
             'phishing_db_path': 'data/phishing.db',
             'threat_feeds': [
                 {
-                    'type': 'json',
+                    'type': 'text',
                     'url': 'https://openphish.com/feed.txt',
                     'source': 'openphish'
                 }
@@ -239,7 +239,7 @@ async def create_app() -> FastAPI:
             'optimization_interval': 300,  # 5 minutes
             'database_pools': {
                 'default': {
-                    'url': settings.DATABASE_URL,
+                    'url': settings.SQLALCHEMY_DATABASE_URL, # <-- This line needs to change
                     'min_size': 5,
                     'max_size': 20,
                     'max_queries': 50000,

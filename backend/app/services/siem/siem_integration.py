@@ -68,22 +68,40 @@ class ElasticsearchSIEM:
         """Initialize Elasticsearch connection and start background tasks"""
         try:
             # Initialize Elasticsearch client
-            es_config = {
-                'hosts': self.config.get('elasticsearch_hosts', ['localhost:9200']),
-                'http_auth': None,
-                'use_ssl': self.config.get('use_ssl', False),
-                'verify_certs': self.config.get('verify_certs', False),
+            # New approach:
+            use_ssl_config = self.config.get('use_ssl', False)
+            verify_certs_config = self.config.get('verify_certs', False)
+            
+            original_hosts = self.config.get('elasticsearch_hosts', ['localhost:9200'])
+            processed_hosts = []
+            for host in original_hosts:
+                if use_ssl_config:
+                    if not host.startswith('https://'):
+                        processed_hosts.append(f'https://{host}')
+                    else:
+                        processed_hosts.append(host)
+                else:
+                    if not host.startswith('http://'):
+                        processed_hosts.append(f'http://{host}')
+                    else:
+                        processed_hosts.append(host)
+
+            es_constructor_args = {
+                'hosts': processed_hosts,
                 'timeout': self.config.get('timeout', 30)
             }
             
-            # Add authentication if provided
             if self.config.get('username') and self.config.get('password'):
-                es_config['http_auth'] = (
+                es_constructor_args['http_auth'] = (
                     self.config['username'], 
                     self.config['password']
                 )
-            
-            self.es_client = AsyncElasticsearch(**es_config)
+
+            # Add verify_certs only if SSL is intended
+            if use_ssl_config:
+                self.es_client = AsyncElasticsearch(**es_constructor_args, verify_certs=verify_certs_config)
+            else:
+                self.es_client = AsyncElasticsearch(**es_constructor_args)
             
             # Test connection
             await self.es_client.ping()
