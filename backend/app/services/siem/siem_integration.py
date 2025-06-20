@@ -87,10 +87,12 @@ class ElasticsearchSIEM:
                         processed_hosts.append(host)
 
             es_constructor_args = {
-                'hosts': processed_hosts,
-                'timeout': self.config.get('timeout', 30)
+                'hosts': processed_hosts
+                # 'timeout' parameter removed
             }
-            
+            # If a request timeout is desired, it should be added like this:
+            # es_constructor_args['request_timeout'] = self.config.get('request_timeout', 30)
+
             if self.config.get('username') and self.config.get('password'):
                 es_constructor_args['http_auth'] = (
                     self.config['username'], 

@@ -14,6 +14,7 @@ from dataclasses import dataclass, asdict
 import aiohttp
 import sqlite3
 from pathlib import Path
+import os
 import dns.resolver
 import tldextract
 import base64
@@ -68,7 +69,9 @@ class AdvancedPhishingBlocker:
         self.blocked_urls: Set[str] = set()
         self.blocked_ips: Set[str] = set()
         self.whitelist_domains: Set[str] = set()
-        self.db_path = self.config.get('phishing_db_path', 'phishing.db')
+        data_dir = Path(__file__).resolve().parent.parent.parent.parent / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path = data_dir / "phishing.db"
         self.update_interval = self.config.get('update_interval', 1800)  # 30 minutes
         self.lock = asyncio.Lock()
         

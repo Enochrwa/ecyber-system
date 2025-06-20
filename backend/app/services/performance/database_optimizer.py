@@ -168,6 +168,15 @@ class AsyncConnectionPool:
     async def initialize(self):
         """Initialize the connection pool"""
         try:
+            if self.database_url.startswith("sqlite"):
+                logger.info(f"SQLite database detected for pool '{self.stats.pool_name}'. Skipping asyncpg-specific setup.")
+                self.pool = None # Or a dummy/mock pool if necessary for other methods
+                # Update stats accordingly or ensure they handle None pool
+                self.stats.size = 0 
+                self.stats.total_connections_created = 0
+                logger.info(f"Database connection pool (SQLite dummy) initialized: {self.stats.pool_name}")
+                return # Exit early as asyncpg setup is not applicable
+
             self.pool = await asyncpg.create_pool(
                 self.database_url,
                 min_size=self.min_size,
@@ -195,8 +204,13 @@ class AsyncConnectionPool:
     async def execute_query(self, query: str, *args, **kwargs) -> Any:
         """Execute a query with performance monitoring"""
         if not self.pool:
-            raise RuntimeError("Connection pool not initialized")
-        
+            # If it's an SQLite setup, this pool isn't used for direct queries via asyncpg
+            logger.debug(f"AsyncConnectionPool.execute_query called but pool is not initialized (likely SQLite). Query: {query[:100]}")
+            # Depending on desired behavior for SQLite, either raise an error,
+            # or return a specific value indicating no operation.
+            # For now, let's make it clear this path shouldn't be used for SQLite with asyncpg.
+            raise RuntimeError("execute_query called on AsyncConnectionPool with uninitialized asyncpg pool (likely due to SQLite DSN).")
+
         start_time = time.time()
         query_hash = str(hash(query))
         success = True
@@ -258,7 +272,8 @@ class AsyncConnectionPool:
     async def execute_transaction(self, queries: List[str], *args, **kwargs) -> List[Any]:
         """Execute multiple queries in a transaction"""
         if not self.pool:
-            raise RuntimeError("Connection pool not initialized")
+            logger.debug(f"AsyncConnectionPool.execute_transaction called but pool is not initialized (likely SQLite).")
+            raise RuntimeError("execute_transaction called on AsyncConnectionPool with uninitialized asyncpg pool (likely due to SQLite DSN).")
         
         results = []
         

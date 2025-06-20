@@ -13,6 +13,7 @@ from dataclasses import dataclass, asdict
 import aiohttp
 import sqlite3
 from pathlib import Path
+import os
 import yaml
 import xml.etree.ElementTree as ET
 
@@ -81,7 +82,9 @@ class AdvancedSignatureEngine:
         self.signatures: Dict[str, ThreatSignature] = {}
         self.compiled_patterns: Dict[str, re.Pattern] = {}
         self.yara_rules: Dict[str, Any] = {}
-        self.db_path = self.config.get('signature_db_path', 'signatures.db')
+        data_dir = Path(__file__).resolve().parent.parent.parent.parent / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path = data_dir / "signatures.db"
         self.signature_sources = self.config.get('signature_sources', [])
         self.update_interval = self.config.get('update_interval', 3600)  # 1 hour
         self.lock = asyncio.Lock()

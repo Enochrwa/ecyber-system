@@ -14,6 +14,8 @@ from dataclasses import dataclass, asdict
 import aiohttp
 import sqlite3
 import threading
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +42,9 @@ class EnhancedIPBlocker:
         self.quarantined_ips: Dict[str, BlockedIP] = {}
         self.lock = asyncio.Lock()
         self.platform = platform.system().lower()
-        self.db_path = self.config.get('db_path', 'blocked_ips.db')
+        data_dir = Path(__file__).resolve().parent.parent.parent.parent / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path = data_dir / "blocked_ips.db"
         self._init_database()
         self._load_persistent_blocks()
         
