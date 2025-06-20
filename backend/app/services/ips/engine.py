@@ -2512,7 +2512,21 @@ class EnterpriseIPS:
 
         # Cancel background tasks
         for task in self.background_tasks:
-            task.cancel()
+            if task and not task.done(): # Check if task exists and is not already done
+                task.cancel()
+                try:
+                    await task # Wait for task to acknowledge cancellation
+                except asyncio.CancelledError:
+                    logger.debug(f"Background task {task_name} cancelled successfully.") # Assuming task_name is available or use task repr
+                except Exception as e:
+                    logger.error(f"Error during background task {task_name} cancellation: {e}", exc_info=True)
+
+
+        # Clean up MitigationEngine resources (including its aiohttp session)
+        if self.mitigation_engine:
+            logger.debug("Cleaning up MitigationEngine resources...")
+            await self.mitigation_engine.cleanup()
+            logger.debug("MitigationEngine resources cleaned up.")
 
         logger.info("Enterprise IPS stopped")
 

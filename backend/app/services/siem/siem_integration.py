@@ -53,6 +53,7 @@ class ElasticsearchSIEM:
         self.buffer_lock = asyncio.Lock()
         self.running = False
         self.flush_task = None
+        self._session = None # For service checks
         
         # Index templates for different event types
         self.index_templates = {
@@ -67,8 +68,10 @@ class ElasticsearchSIEM:
     async def start(self):
         """Initialize Elasticsearch connection and start background tasks"""
         try:
-            # Initialize Elasticsearch client
-            # New approach:
+            # Get aiohttp session for checks
+            http_session = await self._get_aiohttp_session()
+
+            # Determine Elasticsearch hosts and perform reachability check
             use_ssl_config = self.config.get('use_ssl', False)
             verify_certs_config = self.config.get('verify_certs', False)
             
@@ -85,6 +88,23 @@ class ElasticsearchSIEM:
                         processed_hosts.append(f'http://{host}')
                     else:
                         processed_hosts.append(host)
+            
+            if not processed_hosts:
+                logger.error("No Elasticsearch hosts configured.")
+                raise ValueError("Elasticsearch hosts are not configured.")
+
+            # Check reachability of the first Elasticsearch host
+            # A more robust check might try all hosts or a specific health check endpoint
+            first_es_host_for_check = processed_hosts[0]
+            # Ensure the URL has a scheme for the check
+            if not first_es_host_for_check.startswith(('http://', 'https://')):
+                first_es_host_for_check = f"http{'s' if use_ssl_config else ''}://{first_es_host_for_check}"
+            
+            if not await self._check_service_availability(first_es_host_for_check, "Elasticsearch", http_session):
+                logger.error(f"Elasticsearch is not reachable at {first_es_host_for_check}. Aborting SIEM start.")
+                # Optionally, set self.es_client to None or handle as per application's error strategy
+                self.es_client = None 
+                return # Or raise an exception
 
             es_constructor_args = {
                 'hosts': processed_hosts
@@ -121,7 +141,35 @@ class ElasticsearchSIEM:
         except Exception as e:
             logger.error(f"Failed to start Elasticsearch SIEM: {e}")
             raise
-    
+
+    async def _get_aiohttp_session(self):
+        """Get or create an aiohttp.ClientSession."""
+        if self._session is None or self._session.closed:
+            # You might want to configure the session further, e.g., with timeouts
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def _check_service_availability(self, url: str, service_name: str, session: aiohttp.ClientSession) -> bool:
+        """Helper function to check if a service is available."""
+        try:
+            async with session.get(url, timeout=5) as response: # Basic check, adjust timeout as needed
+                # Consider any 2xx or 3xx status as available for basic check
+                if response.status < 400:
+                    logger.info(f"{service_name} is reachable at {url} with status {response.status}.")
+                    return True
+                else:
+                    logger.warning(f"{service_name} at {url} returned status {response.status}.")
+                    return False
+        except aiohttp.ClientConnectorError as e:
+            logger.error(f"Error connecting to {service_name} at {url}: {e}. Service might be down or host unreachable.")
+            return False
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout connecting to {service_name} at {url}. Service might be slow or down.")
+            return False
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while checking {service_name} at {url}: {e}")
+            return False
+
     async def stop(self):
         """Stop SIEM and flush remaining events"""
         self.running = False
@@ -139,6 +187,10 @@ class ElasticsearchSIEM:
         if self.es_client:
             await self.es_client.close()
         
+        if self._session and not self._session.closed:
+            await self._session.close()
+            logger.debug("aiohttp session for service checks closed.")
+
         logger.info("SIEM Elasticsearch integration stopped")
     
     async def _create_index_templates(self):
@@ -450,15 +502,22 @@ class ElasticsearchSIEM:
 class KibanaIntegration:
     """Integration with Kibana for visualization and dashboards"""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], es_siem_instance: ElasticsearchSIEM):
         self.config = config
         self.kibana_url = config.get('kibana_url', 'http://localhost:5601')
         self.username = config.get('username')
+        self.es_siem_instance = es_siem_instance # To access _check_service_availability and session
         self.password = config.get('password')
         self.space_id = config.get('space_id', 'default')
         
     async def create_index_patterns(self):
         """Create Kibana index patterns for SIEM data"""
+        
+        http_session = await self.es_siem_instance._get_aiohttp_session()
+        if not await self.es_siem_instance._check_service_availability(self.kibana_url, "Kibana", http_session):
+            logger.error(f"Kibana is not reachable at {self.kibana_url}. Skipping index pattern creation.")
+            return
+
         index_patterns = [
             {
                 "title": "aurore-siem-threat-*",
@@ -573,7 +632,8 @@ class SIEMManager:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.elasticsearch_siem = ElasticsearchSIEM(config.get('elasticsearch', {}))
-        self.kibana_integration = KibanaIntegration(config.get('kibana', {}))
+        # Pass ElasticsearchSIEM instance to KibanaIntegration
+        self.kibana_integration = KibanaIntegration(config.get('kibana', {}), self.elasticsearch_siem)
         self.running = False
         
     async def start(self):
@@ -581,7 +641,16 @@ class SIEMManager:
         try:
             # Start Elasticsearch integration
             await self.elasticsearch_siem.start()
-            
+
+            # If Elasticsearch client failed to initialize (e.g., ES not reachable),
+            # elasticsearch_siem.es_client might be None.
+            # We should not proceed with Kibana setup if ES is not up.
+            if not self.elasticsearch_siem.es_client:
+                logger.warning("Elasticsearch client not available. Skipping Kibana setup.")
+                # Depending on desired behavior, you might want to set self.running to False
+                # or handle this as a partial failure.
+                return
+
             # Setup Kibana
             await self.kibana_integration.create_index_patterns()
             await self.kibana_integration.create_security_dashboard()

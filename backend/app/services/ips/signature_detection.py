@@ -37,7 +37,7 @@ class ThreatSignature:
     created_at: datetime = None
     updated_at: datetime = None
     author: str = "system"
-    references: List[str] = None
+    ref_links: List[str] = None
     mitre_attack: Dict[str, str] = None
     cve_ids: List[str] = None
     confidence: float = 1.0
@@ -48,8 +48,8 @@ class ThreatSignature:
             self.created_at = datetime.now()
         if self.updated_at is None:
             self.updated_at = datetime.now()
-        if self.references is None:
-            self.references = []
+        if self.ref_links is None:
+            self.ref_links = []
         if self.mitre_attack is None:
             self.mitre_attack = {}
         if self.cve_ids is None:
@@ -126,7 +126,7 @@ class AdvancedSignatureEngine:
                     created_at TEXT,
                     updated_at TEXT,
                     author TEXT,
-                    references TEXT,
+                    ref_links TEXT,
                     mitre_attack TEXT,
                     cve_ids TEXT,
                     confidence REAL,
@@ -191,13 +191,13 @@ class AdvancedSignatureEngine:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM signatures WHERE enabled = 1')
+            cursor.execute('SELECT id, name, description, severity, category, pattern, pattern_type, protocol, source_port, dest_port, direction, enabled, created_at, updated_at, author, ref_links, mitre_attack, cve_ids, confidence, false_positive_rate FROM signatures WHERE enabled = 1')
             rows = cursor.fetchall()
             
             for row in rows:
                 (id, name, description, severity, category, pattern, pattern_type,
                  protocol, source_port, dest_port, direction, enabled, created_at,
-                 updated_at, author, references, mitre_attack, cve_ids, confidence,
+                 updated_at, author, ref_links, mitre_attack, cve_ids, confidence,
                  false_positive_rate) = row
                 
                 signature = ThreatSignature(
@@ -216,7 +216,7 @@ class AdvancedSignatureEngine:
                     created_at=datetime.fromisoformat(created_at),
                     updated_at=datetime.fromisoformat(updated_at),
                     author=author,
-                    references=json.loads(references) if references else [],
+                    ref_links=json.loads(ref_links) if ref_links else [],
                     mitre_attack=json.loads(mitre_attack) if mitre_attack else {},
                     cve_ids=json.loads(cve_ids) if cve_ids else [],
                     confidence=confidence,
@@ -512,7 +512,7 @@ class AdvancedSignatureEngine:
                         metadata={
                             'mitre_attack': signature.mitre_attack,
                             'cve_ids': signature.cve_ids,
-                            'references': signature.references
+                            'references': signature.ref_links
                         }
                     )
                     
@@ -568,7 +568,7 @@ class AdvancedSignatureEngine:
                 INSERT OR REPLACE INTO signatures 
                 (id, name, description, severity, category, pattern, pattern_type,
                  protocol, source_port, dest_port, direction, enabled, created_at,
-                 updated_at, author, references, mitre_attack, cve_ids, confidence,
+                 updated_at, author, ref_links, mitre_attack, cve_ids, confidence,
                  false_positive_rate)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
@@ -587,7 +587,7 @@ class AdvancedSignatureEngine:
                 signature.created_at.isoformat(),
                 signature.updated_at.isoformat(),
                 signature.author,
-                json.dumps(signature.references),
+                json.dumps(signature.ref_links),
                 json.dumps(signature.mitre_attack),
                 json.dumps(signature.cve_ids),
                 signature.confidence,

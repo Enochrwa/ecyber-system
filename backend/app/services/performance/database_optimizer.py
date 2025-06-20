@@ -252,9 +252,18 @@ class AsyncConnectionPool:
             execution_time = time.time() - start_time
             
             # Update average query time
-            total_time = self.stats.average_query_time * (self.stats.total_queries_executed - 1)
-            self.stats.average_query_time = (total_time + execution_time) / self.stats.total_queries_executed
-            
+            if self.stats.total_queries_executed > 0:
+                total_time = self.stats.average_query_time * (self.stats.total_queries_executed - 1)
+                self.stats.average_query_time = (total_time + execution_time) / self.stats.total_queries_executed
+            elif self.stats.total_queries_executed == 1: # This is the first query
+                self.stats.average_query_time = execution_time
+            else:
+                # This case should ideally not be reached if total_queries_executed is incremented correctly.
+                # If it's 0 here, it means it wasn't incremented before this calculation.
+                # Setting to execution_time or 0 are options. Let's log if this happens.
+                logger.warning("total_queries_executed is 0 or less when calculating average_query_time. This might indicate an issue.")
+                self.stats.average_query_time = execution_time # Or 0, depending on desired behavior
+
             # Record query metrics
             metrics = QueryMetrics(
                 query_hash=query_hash,
@@ -445,9 +454,15 @@ class DatabaseOptimizer:
         if stats.average_query_time > 1.0:
             logger.warning(f"High average query time in pool '{pool_name}': {stats.average_query_time:.3f}s")
         
-        if stats.checked_out / stats.size > 0.8:
-            logger.warning(f"High connection utilization in pool '{pool_name}': {stats.checked_out}/{stats.size}")
-        
+        if stats.size > 0:
+            utilization = stats.checked_out / stats.size
+            if utilization > 0.8:
+                logger.warning(f"High connection utilization in pool '{pool_name}': {stats.checked_out}/{stats.size} ({utilization:.2%})")
+        elif stats.checked_out > 0: # If size is 0 but connections are checked out, it's an anomaly
+            logger.warning(f"Connections checked out ({stats.checked_out}) but pool size is reported as 0 for pool '{pool_name}'.")
+        else:
+            logger.info(f"Pool '{pool_name}' has size 0 and no connections checked out.")
+            
         # Get query optimization suggestions
         suggestions = pool.query_optimizer.suggest_optimizations()
         if suggestions:
@@ -507,10 +522,15 @@ class DatabaseOptimizer:
                 f"Found {total_slow_queries} slow queries across all pools - consider database optimization"
             )
         
-        high_utilization_pools = [
-            name for name, pool in self.connection_pools.items()
-            if pool.get_pool_stats().checked_out / pool.get_pool_stats().size > 0.8
-        ]
+        high_utilization_pools = []
+        for name, pool in self.connection_pools.items():
+            pool_stats = pool.get_pool_stats()
+            if pool_stats.size > 0:
+                if pool_stats.checked_out / pool_stats.size > 0.8:
+                    high_utilization_pools.append(name)
+            elif pool_stats.checked_out > 0: # Size is 0 but connections are out
+                 logger.warning(f"In get_optimization_report: Pool '{name}' has size 0 but {pool_stats.checked_out} connections checked out. Consider this for utilization reporting.")
+                 # Optionally, add to a different list or handle as a special case in the report
         
         if high_utilization_pools:
             report['overall_recommendations'].append(
