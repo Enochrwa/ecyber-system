@@ -743,8 +743,8 @@ class AdvancedFeatureExtractor:
             features = {k: features[k] for k in EXPECTED_FEATURES if k in features}
 
             
-            # if features:
-            #     self.append_features_row("ml_ready_features.csv", features)
+            if features:
+                self.append_features_row("ml_ready_features.csv", features)
             del self.flows[fk]
             if fk in self.flow_packets:
                 del self.flow_packets[fk]
@@ -2484,10 +2484,10 @@ class EnhancedPacketProcessor:
                 features = self.feature_extractor.compute_features(flow_key_obj)
 
                 # If features are computed successfully, append them to CSV
-                # if features:
-                #     self.feature_extractor.append_features_row(
-                #         "ml_ready_features.csv", features
-                #     )
+                if features:
+                    self.feature_extractor.append_features_row(
+                        "ml_ready_features.csv", features
+                    )
 
                 # Clear flow-specific data to free memory
                 self.feature_extractor.clear_flow(flow_key_obj)

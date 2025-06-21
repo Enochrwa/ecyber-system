@@ -230,3 +230,44 @@
 2025-06-21 11:21:14 - main - INFO - SIEM Integration stopped
 2025-06-21 11:21:14 - main - INFO - Performance optimizer stopped
 2025-06-21 11:21:14 - main - INFO - Database optimizer stopped
+2025-06-21 12:06:45 - main - INFO - Database initialized successfully
+2025-06-21 12:06:47 - main - INFO - 🚀 Starting eCyber Security System
+2025-06-21 12:06:47 - main - INFO - Initializing background services...
+2025-06-21 11:06:30 - main - INFO - Enhanced IP Blocker initialized
+2025-06-21 12:06:48 - main - INFO - Advanced Signature Engine initialized
+2025-06-21 12:07:14 - main - INFO - Advanced Phishing Blocker initialized
+2025-06-21 12:07:14 - main - INFO - SIEM Integration initialized successfully
+2025-06-21 12:07:14 - main - INFO - Performance optimizer initialized successfully
+2025-06-21 12:07:16 - main - INFO - Database optimizer initialized successfully
+2025-06-21 12:07:16 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-06-21 12:07:25 - main - INFO - System monitoring started
+2025-06-21 12:08:36 - main - INFO - User stopped sniffing
+2025-06-21 12:08:37 - main - INFO - Stopping PacketSniffer...
+2025-06-21 12:08:37 - main - INFO - PacketSniffer stopped.
+2025-06-21 12:09:07 - main - INFO - User started sniffing on enp0s8
+2025-06-21 12:11:25 - main - INFO - 🛑 Gracefully shutting down...
+2025-06-21 12:11:25 - main - INFO - Enhanced IP Blocker stopped
+2025-06-21 12:11:25 - main - INFO - Advanced Signature Engine stopped
+2025-06-21 12:11:25 - main - INFO - Advanced Phishing Blocker stopped
+2025-06-21 12:11:25 - main - INFO - SIEM Integration stopped
+2025-06-21 12:11:25 - main - INFO - Performance optimizer stopped
+2025-06-21 12:11:25 - main - INFO - Database optimizer stopped
+2025-06-21 12:13:56 - main - INFO - Database initialized successfully
+2025-06-21 12:13:57 - main - INFO - 🚀 Starting eCyber Security System
+2025-06-21 12:13:57 - main - INFO - Initializing background services...
+2025-06-21 12:13:57 - main - INFO - Enhanced IP Blocker initialized
+2025-06-21 12:13:57 - main - INFO - Advanced Signature Engine initialized
+2025-06-21 12:14:02 - main - INFO - Advanced Phishing Blocker initialized
+2025-06-21 12:14:02 - main - INFO - SIEM Integration initialized successfully
+2025-06-21 12:14:02 - main - INFO - Performance optimizer initialized successfully
+2025-06-21 12:14:04 - main - INFO - Database optimizer initialized successfully
+2025-06-21 12:14:04 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-06-21 12:14:06 - main - INFO - System monitoring started
+2025-06-21 12:15:13 - main - INFO - User started sniffing on enp0s8
+2025-06-21 12:17:22 - main - INFO - 🛑 Gracefully shutting down...
+2025-06-21 12:17:23 - main - INFO - Enhanced IP Blocker stopped
+2025-06-21 12:17:23 - main - INFO - Advanced Signature Engine stopped
+2025-06-21 12:17:23 - main - INFO - Advanced Phishing Blocker stopped
+2025-06-21 12:17:23 - main - INFO - SIEM Integration stopped
+2025-06-21 12:17:23 - main - INFO - Performance optimizer stopped
+2025-06-21 12:17:23 - main - INFO - Database optimizer stopped
