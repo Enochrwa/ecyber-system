@@ -2517,9 +2517,9 @@ class EnterpriseIPS:
                 try:
                     await task # Wait for task to acknowledge cancellation
                 except asyncio.CancelledError:
-                    logger.debug(f"Background task {task_name} cancelled successfully.") # Assuming task_name is available or use task repr
+                    logger.debug(f"Background task {repr(task)} cancelled successfully.") # Assuming task_name is available or use task repr
                 except Exception as e:
-                    logger.error(f"Error during background task {task_name} cancellation: {e}", exc_info=True)
+                    logger.error(f"Error during background task {repr(task)} cancellation: {e}", exc_info=True)
 
 
         # Clean up MitigationEngine resources (including its aiohttp session)

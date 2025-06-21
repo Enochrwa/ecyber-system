@@ -491,7 +491,7 @@ async def _on_start_sniffing(sid, data):
     logger.info(f"User started sniffing on {data.get('sniffingInterface')}")
     global sniffer, sniffer_service
     try:
-        interface = data.get("sniffingInterface", "Wi-Fi")
+        interface = data.get("sniffingInterface", "enp0s8")
         await sniffer_service.start()
         await sniffer.start(interface)
         await sio.emit("sniffing_started", {"interface": interface}, to=sid)

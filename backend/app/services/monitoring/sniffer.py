@@ -932,19 +932,19 @@ class PacketSniffer:
                 packet_info["protocol"] = "Unknown"
 
             # Log the packet now with accurate data
-            logger.info(
-                "Packet Received: proto=%(protocol)s src=%(src_ip)s:%(src_port)s "
-                "dst=%(dst_ip)s:%(dst_port)s size=%(size)d flags=%(flags)s",
-                {
-                    "protocol": packet_info["protocol"],
-                    "src_ip": src_ip,
-                    "src_port": packet_info.get("src_port", "N/A"),
-                    "dst_ip": dst_ip,
-                    "dst_port": packet_info.get("dst_port", "N/A"),
-                    "size": packet_info["size"],
-                    "flags": packet_info.get("flags", "N/A")
-                }
-            )
+            # logger.info(
+            #     "Packet Received: proto=%(protocol)s src=%(src_ip)s:%(src_port)s "
+            #     "dst=%(dst_ip)s:%(dst_port)s size=%(size)d flags=%(flags)s",
+            #     {
+            #         "protocol": packet_info["protocol"],
+            #         "src_ip": src_ip,
+            #         "src_port": packet_info.get("src_port", "N/A"),
+            #         "dst_ip": dst_ip,
+            #         "dst_port": packet_info.get("dst_port", "N/A"),
+            #         "size": packet_info["size"],
+            #         "flags": packet_info.get("flags", "N/A")
+            #     }
+            # )
             
             # --- Populate _endpoint_tracker (Task 4) ---
             if src_ip and dst_ip and packet_info.get("protocol") and packet_info.get("dst_port") is not None:
