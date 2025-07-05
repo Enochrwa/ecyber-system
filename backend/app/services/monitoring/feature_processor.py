@@ -894,81 +894,9 @@ class AdvancedFeatureExtractor:
                 features = self.compute_features(
                     flow_key
                 )  # Use the main compute_features with flow_key only
-
-                # Behavioral and protocol features are specific to the current packet, not the whole flow.
-                # They are usually added on top of flow features if needed for real-time decisions.
-                # For pure flow feature extraction as per CICIDS, these might not belong here
-                # or should be clearly separated. compute_features now returns the 84 CICIDS features.
-                # If these are needed, they should be added to the dict from compute_features.
-
-                # For now, let's assume compute_features is the source of truth for flow-based features.
-                # If behavioral/protocol features are needed *in addition*, they can be added:
-                # behavioral_features = self._extract_behavioral_features(packet_info) # packet_info is IP specific
-                # features.update(behavioral_features) # This would add non-CICIDS features
-
-                # protocol_features = self._extract_protocol_features(packet, packet_info) # packet_info is IP specific
-                # features.update(protocol_features)  # This would add non-CICIDS features
-
-                # If the goal is strictly CICIDS features, then just return 'features' from compute_features.
-                # The current structure of extract_features seems to try to do more.
-                # For this refactoring, ensure it returns what compute_features returns.
-                # If compute_features is comprehensive, then behavioral/protocol might be redundant here
-                # if they are already incorporated into compute_features or not part of the target feature set.
-                # Given compute_features was just refactored for CICIDS, let's trust its output.
-                # The _extract_behavioral_features and _extract_protocol_features are IP-dependent.
-                # Since we've guarded for IP packets, these calls are safe if uncommented.
-                # However, to align with "output of compute_features", we should rely on that.
-                # For now, returning 'features' which is the output of self.compute_features(flow_key)
-                # is the most direct interpretation of making extract_features use the refactored compute_features.
-                # The behavioral/protocol features are not part of the 84 CICIDS features.
-                # If they are to be included, the function signature and purpose might need to be revisited.
-                # For now, let's stick to returning the output of compute_features.
-                # The _extract_behavioral_features and _extract_protocol_features are not called.
-                # This aligns with the goal of making `extract_features` rely on `compute_features`.
-                # If these additional features are desired, they should be added to the dict `f`
-                # within `compute_features` itself or handled by the caller of `extract_features`.
-
-                # The current `_compute_flow_features` does not exist. It was renamed to `compute_features`.
-                # The call should be `features = self.compute_features(flow_key)`
-                # The `packet_info` arg was removed from `compute_features`.
-                # The behavioral and protocol features are not part of the 84 features from compute_features.
-                # Let's remove them here to ensure extract_features returns the strict set from compute_features.
-                # If they are needed, the calling context should handle merging them.
-
-                # The features from compute_features are what we want.
-                # The behavioral_features and protocol_features are extra and IP-dependent.
-                # Since we are already guarded for IP packets, they *could* be added.
-                # However, the task is about robustness for non-IP and using the refactored compute_features.
-                # The current compute_features does NOT include behavioral/protocol features.
-                # So, to make extract_features align, these should not be added here.
-                # features = self.compute_features(flow_key) # This is already done above.
-
-                # No, the call to self._compute_flow_features should be self.compute_features
-                # The original code was: features = self._compute_flow_features(flow_key, packet_info)
-                # This should now be: features = self.compute_features(flow_key)
-                # which is already done.
-                # The local _update_flow_statistics updates the flow state.
-                # Then compute_features reads that state.
-
-                # The current structure of extract_features is:
-                # 1. Get packet_info (guard for non-IP)
-                # 2. Get flow_key (guard if not created)
-                # 3. Update flow_stats with current packet (_update_flow_statistics)
-                # 4. Compute features for the *current state* of the flow (self.compute_features)
-                # 5. Optionally add packet-specific behavioral/protocol features.
-                # This structure seems reasonable. The key is that compute_features now returns the 84 features.
-                # For this task, I will remove the addition of behavioral and protocol features
-                # to make `extract_features` primarily a wrapper around `compute_features` after updating flow state.
-
-                # features = self.compute_features(flow_key) # This line is already correct.
-                # Let's remove the behavioral and protocol feature extraction for now from this method
-                # as compute_features is supposed to be the source of the 84 features.
-                # If they are needed, they should be added by compute_features or by the caller.
-                # This simplifies extract_features to focus on flow state update and calling compute_features.
-                pass  # Behavioral and protocol features are not part of the core 84 from compute_features.
-                # If they were, compute_features would add them.
-                # So, no features.update(behavioral_features) here.
-
+                
+             
+                pass  
                 protocol_features = self._extract_protocol_features(packet, packet_info)
                 features.update(protocol_features)
 

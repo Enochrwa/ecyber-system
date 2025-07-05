@@ -74,8 +74,8 @@ const navItems = [
     badge: { count: 7, severity: 'critical' } 
   },
   { icon: Cpu, label: 'ML & AI Models', path: '/models', badge: null },
-  { icon: Users, label: 'Access Control', path: '/users', badge: null },
-  { icon: Settings, label: 'Settings', path: '/settings', badge: null },
+  // { icon: Users, label: 'Access Control', path: '/users', badge: null },
+  // { icon: Settings, label: 'Settings', path: '/settings', badge: null },
   { 
     icon: ShieldAlert, 
     label: 'Attacks', 
@@ -284,7 +284,7 @@ const Sidebar = () => {
             <div className="space-y-1.5">
               {threatFeeds.map((feed) => (
                 <TooltipProvider key={feed.id} delayDuration={300}>
-                  <Link to={feed.path}>
+                  {/* <Link to={feed.path}> */}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div 
@@ -311,7 +311,7 @@ const Sidebar = () => {
                       <p>{feed.status === 'active' ? 'Feed is active and synced' : 'Warning: Feed has outdated data'}</p>
                     </TooltipContent>
                   </Tooltip>
-                  </Link>
+                  {/* </Link> */}
                 </TooltipProvider>
               ))}
             </div>

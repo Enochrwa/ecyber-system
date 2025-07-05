@@ -4,9 +4,9 @@ import Sidebar from "./Sidebar";
 import { Outlet, useNavigate } from "react-router-dom"; // Added useNavigate
 import Header from './Header';
 import AIAssistant from "../common/AIAssistant";
-import { useAuth } from "@/context/AuthContext"; // Added
+// import { useAuth } from "@/context/AuthContext"; // Added
 import { useDispatch } from "react-redux"; // Added
-import { setAuthModalState } from "@/app/slices/displaySlice"; // Added
+// import { setAuthModalState } from "@/app/slices/displaySlice"; // Added
 // import LoadingSpinner from '@/utils/LoadingSpinner'; // Added for better UX
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Shield, Bell } from "lucide-react";
@@ -20,33 +20,33 @@ const MainLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // const [notificationCount, setNotificationCount] = useState(3); // Not used in provided snippet
   
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth(); // Get auth state
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+  // const { isAuthenticated, isLoading: isAuthLoading } = useAuth(); // Get auth state
+  // const dispatch = useDispatch();
+  // const navigate = useNavigate();
 
-  useEffect(() => {
-    setIsMounted(true); // For AI Assistant, can be kept or removed if not essential for auth logic
-  }, []);
+  // useEffect(() => {
+  //   setIsMounted(true); // For AI Assistant, can be kept or removed if not essential for auth logic
+  // }, []);
 
-  useEffect(() => {
-    if (!isAuthLoading && !isAuthenticated) {
-      // User is not authenticated and auth state is resolved
-      dispatch(setAuthModalState(true)); // Open the login modal
-      navigate('/', { replace: true }); // Redirect to home page, modal will overlay it
-    }
-  }, [isAuthenticated, isAuthLoading, dispatch, navigate]);
+  // useEffect(() => {
+  //   if (!isAuthLoading && !isAuthenticated) {
+  //     // User is not authenticated and auth state is resolved
+  //     dispatch(setAuthModalState(true)); // Open the login modal
+  //     navigate('/', { replace: true }); // Redirect to home page, modal will overlay it
+  //   }
+  // }, [isAuthenticated, isAuthLoading, dispatch, navigate]);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
 
-  if (!isAuthenticated) {
-    // User is not authenticated, and we've already dispatched to open modal and navigated to '/'.
-    // Render null or a minimal spinner here as the modal should be handling the UI.
-    // Navigating to '/' ensures that if the modal is closed without logging in, the user is on a safe public page.
-    return null; // Or <LoadingSpinner /> or a message prompting login via modal
-  }
+  // if (!isAuthenticated) {
+  //   // User is not authenticated, and we've already dispatched to open modal and navigated to '/'.
+  //   // Render null or a minimal spinner here as the modal should be handling the UI.
+  //   // Navigating to '/' ensures that if the modal is closed without logging in, the user is on a safe public page.
+  //   return null; // Or <LoadingSpinner /> or a message prompting login via modal
+  // }
 
   // If authenticated, render the main layout
   return (
@@ -81,7 +81,7 @@ const MainLayout = () => {
         </main>
         
         {/* AI Assistant only renders after initial mount to prevent hydration issues */}
-        {isMounted && <AIAssistant />}
+        {/* {isMounted && <AIAssistant />} */}
       </div>
     </div>
   );

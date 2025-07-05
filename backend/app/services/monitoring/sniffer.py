@@ -1,3 +1,14 @@
+import warnings
+import logging
+
+# MUST happen before any imports that may trigger the warning
+from cryptography.utils import CryptographyDeprecationWarning
+warnings.simplefilter("ignore", CryptographyDeprecationWarning)
+warnings.simplefilter("ignore", UserWarning)
+
+# Suppress Scapy runtime warnings (e.g., manuf)
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
 import re
 import math
 import json
@@ -5,10 +16,12 @@ import uuid # Added import
 import pandas as pd
 import gzip, joblib, json
 import time
+import queue
+import threading
 import sklearn.ensemble._iforest
 import logging
 from contextlib import asynccontextmanager
-from .feature_processor import EXPECTED_FEATURES # Added import
+# from .feature_processor import EXPECTED_FEATURES # Added import
 import platform
 from operator import itemgetter
 import asyncio 
@@ -56,6 +69,7 @@ from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from .feature_processor import AdvancedFeatureExtractor, ThreatDetector, EnhancedPacketProcessor
+# from .prepare_features import FlowManager
 from ...models.network import NetworkEvent
 from ...models.threat import ThreatLog
 from ...database import get_db
@@ -68,10 +82,12 @@ from ..detection.signature import SignatureEngine
 from ..detection.detect_port_scan import PortScanDetector
 # from ..detection.phishing_blocker import PhishingBlocker
 from .reporter_helper import _reporter_loop, default_asn, default_geo
-from ml.feature_extraction import analyze_and_flatten,map_to_cicids2017_features
+# from ml.feature_extraction import analyze_and_flatten,map_to_cicids2017_features
 from ...utils.format_http_data import transform_http_activity
-from ...utils.save_to_json import save_http_data_to_json, save_packet_data_to_json, save_features_to_json, save_feature_vectors_to_json
+from ...utils.save_to_json import save_feature_vectors_to_json,save_http_data_to_json, save_packet_data_to_json, save_features_to_json
 # from ..ips.engine import IPSEngine
+from .flow_utils import prepare_input_for_prediction, process_flows, SELECTED_FEATURES as EXPECTED_FEATURES
+from cicflowmeter.flow_session import FlowSession
 
 # Configure logging
 logger = logging.getLogger("packet_sniffer")
@@ -119,6 +135,12 @@ class PacketSniffer:
         self.sniffer_process: Optional[Process] = None
         self.stop_sniffing_event = mp.Event()
         self.total_bytes = 0
+
+        ## Flow Based feature extractions
+        self._flow_session = FlowSession(output_mode="csv", output=None, verbose=False)
+        self._flow_flush_interval = 30
+        self._ml_queue = Queue()
+        self.packet_info_queue = Queue()
         
         ## Machine learning part - Refactored for parallel loading ##
         self.models = {}  # Stores classifier models: attack_name -> {model, scaler, features, threshold}
@@ -170,11 +192,14 @@ class PacketSniffer:
                 except Exception as e:
                     logger.error(f"Exception collecting anomaly model future: {e}", exc_info=True)
 
-        self.feature_extractor = AdvancedFeatureExtractor(
-            cleanup_interval=300, flow_timeout=120
-        )
-        self.packet_processor = EnhancedPacketProcessor()
-        self.threat_detector = ThreatDetector(self.feature_extractor, self.sio_queue)
+        # self.feature_extractor = AdvancedFeatureExtractor(
+        #     cleanup_interval=300, flow_timeout=120
+        # )
+        # self.comprehensive_feature_extractor = LiveFeatureExtractor()
+        # self.flow_manager = FlowManager(flow_timeout=120)
+
+        # self.packet_processor = EnhancedPacketProcessor()
+        # self.threat_detector = ThreatDetector(self.feature_extractor, self.sio_queue)
         # If you’ll do ML inference:
         # self.enhanced_processor = EnhancedPacketProcessor()
         # self.enhanced_processor.load_model("path/to/your/model.pkl")
@@ -267,14 +292,73 @@ class PacketSniffer:
         sniffer = None
         try:
             sniffer = AsyncSniffer(
-                iface=interface,
-                filter="not (dst net 127.0.0.1 or multicast)",
-                prn=self._packet_handler,
-                store=False,
-                promisc=True
-            )
+            iface=interface,
+            prn=self._packet_handler,
+            store=False
+        )
             sniffer.start()
-            # logger.info("AsyncSniffer started sniffing in dedicated process on %s", interface)
+
+            # 2. Prepare an internal ML work queue
+
+            # 3. Launch the flow-flush thread
+            def _flow_flush_loop():
+                while not self.stop_sniffing_event.is_set():
+                    time.sleep(self._flow_flush_interval)
+                    try:
+                        raw = self._flow_session.flush_flows(return_dataframe=True)
+                        df_clean = process_flows(raw)
+                        if not df_clean.empty:
+                            # Build one batch:
+                            feats_and_vecs = []
+                            for _, row in df_clean.iterrows():
+                                feats = row.to_dict()
+                                vecs = prepare_input_for_prediction(pd.DataFrame([row]))
+                                feats_and_vecs.append((feats, vecs))
+                            # Enqueue the *whole* batch:
+                            self._ml_queue.put(feats_and_vecs)
+                    except Exception:
+                        logger.exception("Error flushing flows")
+
+            self._flow_flush_thread = threading.Thread(
+            target=_flow_flush_loop,
+            daemon=False,               # make it non-daemon so we can join it
+            name="FlowFlushThread"
+            )
+            self._flow_flush_thread.start()
+
+            # 4. Launch the ML-prediction consumer thread
+            def _ml_consumer_loop():
+                
+                while not self.stop_sniffing_event.is_set():
+                    try:
+                        batch = self._ml_queue.get()
+                        for features, vector in batch:
+                            if vector.size == 0:
+                                continue
+                            # Ensure correct shape
+                            vector = vector.reshape(1, -1)
+                            # Build packet_info if needed (could include timestamps, IPs, etc.)
+                            packet_info = self.packet_info_queue.get()
+                            # Call the prediction method
+                            self.predict_with_ml(
+                                packet_info=packet_info,
+                                EXPECTED_FEATURES=self.anomaly_features,
+                                features=features,
+                                vector=vector
+                            )
+                        
+                    except queue.Empty:
+                        continue
+                    except Exception:
+                        logger.exception("Error in ML consumer loop")
+
+            self._ml_consumer_thread = threading.Thread(
+                target=_ml_consumer_loop,
+                daemon=False,
+                name="MLConsumerThread"
+            )
+            self._ml_consumer_thread.start()
+                    
             self.stop_sniffing_event.wait()  # Wait until stop event is set
         except Exception as e:
             logger.error(f"Error in sniffer process on interface {interface}: {e}", exc_info=True)
@@ -851,11 +935,153 @@ class PacketSniffer:
             logger.error(f"Failed to emit packet summary: {str(e)}")
 
 
+    
+    def predict_with_ml(self,
+                        packet_info: dict,
+                        EXPECTED_FEATURES: List[str],
+                        features: Dict[str,Any],
+                        vector: np.ndarray):
+        try:
+            if vector.shape[1] != len(EXPECTED_FEATURES):
+                logger.warning(f"Feature vector size mismatch: got {len(vector)}, expected {len(EXPECTED_FEATURES)}")
+                print("vectors\n")
+                print(vector.shape)
+                missing = set(EXPECTED_FEATURES) - set(features.keys())
+                logger.warning(f"Feature vector size mismatch: missing: {missing}")
+
+            # Save for offline debugging
+            save_feature_vectors_to_json(vector.tolist())
+            save_features_to_json(features)
+
+            # ─── ML SCORING ───
+            for attack_name, model_data in self.models.items():
+                scaler = model_data["scaler"]
+                model = model_data["model"]
+                thresh = model_data["threshold"]
+
+                try:
+                    Xs = pd.DataFrame(vector, columns=EXPECTED_FEATURES)
+                    Xs = scaler.transform(Xs)
+                    prob = float(model.predict_proba(Xs)[0][1])
+
+                    if prob >= thresh:
+                        alert_id = f"ml_{attack_name.replace(' ', '_')}_{str(uuid.uuid4())[:8]}"
+                        severity = "High" if prob > 0.9 else "Medium" if prob > 0.75 else "Low"
+
+                        if "DDoS" in attack_name or "Brute_Force" in attack_name:
+                            severity = "Critical" if prob > 0.8 else "High"
+
+                        description = f"Machine learning model detected {attack_name.replace('_', ' ')} with {prob*100:.2f}% confidence."
+
+                        source_ip_val = features.get('Src IP', packet_info.get('src_ip', 'N/A'))
+                        destination_ip_val = features.get('Dst IP', packet_info.get('dst_ip', 'N/A'))
+                        destination_port_val = int(features.get('Dst Port') or packet_info.get('dst_port') or 0)
+                        protocol_val_numeric = features.get('Protocol', packet_info.get('protocol_num'))
+
+                        protocol_map_for_alert = {6: "TCP", 17: "UDP", 1: "ICMP"}
+                        protocol_str = protocol_map_for_alert.get(protocol_val_numeric, packet_info.get('protocol', str(protocol_val_numeric)))
+
+                        alert = {
+                            "id": alert_id,
+                            "timestamp": datetime.utcnow().isoformat() + "Z",
+                            "severity": severity,
+                            "source_ip": source_ip_val,
+                            "destination_ip": destination_ip_val,
+                            "destination_port": (
+                                int(destination_port_val)
+                                if isinstance(destination_port_val, (str, float)) and str(destination_port_val).isdigit()
+                                else destination_port_val if isinstance(destination_port_val, int)
+                                else 0
+                            ),
+                            "protocol": protocol_str,
+                            "description": description,
+                            "threat_type": attack_name.replace('_', ' '),
+                            "rule_id": f"ml_model_{attack_name.replace(' ', '_')}",
+                            "metadata": {
+                                "probability": round(prob, 4),
+                                "model_name": attack_name,
+                                "features_contributing": {k: v for k, v in features.items() if v != 0}
+                            }
+                        }
+
+                        socket_event_name = f"{attack_name.upper().replace(' ', '_')}_ALERT"
+
+                        try:
+                            self.sio_queue.put_nowait((socket_event_name, alert))
+                            if attack_name == "DoS":
+                                print(f"[DEBUG] DoS Score: {prob:.4f} (Threshold: {thresh})")
+                            logger.warning(f"ML_MODEL DETECTED: {alert}")
+                        except Full:
+                            logger.warning(f"{socket_event_name} queue full, dropping: {alert_id}")
+
+                except Exception as ml_e:
+                    logger.error(f"❌ ML prediction failed for {attack_name}: {ml_e}", exc_info=True)
+
+            # ─── ANOMALY DETECTION ───
+            if self.anomaly_model and self.anomaly_scaler and self.anomaly_threshold_value is not None:
+                try:
+                    anomaly_feature_df = pd.DataFrame(vector, columns=self.anomaly_features)
+                    anomaly_scaled = self.anomaly_scaler.transform(anomaly_feature_df)
+
+                    score = self.anomaly_model.decision_function(anomaly_scaled)[0]
+                    is_anomaly = int(score < self.anomaly_threshold_value)
+
+                    anomaly_result = {
+                        "id": f"anomaly_{str(uuid.uuid4())[:8]}",
+                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                        "source_ip": features.get('Src IP', packet_info.get('src_ip', 'N/A')),
+                        "destination_ip": features.get('Dst IP', packet_info.get('dst_ip', 'N/A')),
+                        "destination_port": features.get('Dst Port', packet_info.get('dst_port', 0)),
+                        "protocol": packet_info.get('protocol', 'N/A'),
+                        "anomaly_score": round(score, 4),
+                        "threshold": self.anomaly_threshold_value,
+                        "is_anomaly": is_anomaly,
+                        "description": f"Anomaly detected with score {score:.4f} (threshold: {self.anomaly_threshold_value}).",
+                        "threat_type": "Anomaly",
+                        "severity": "Medium" if is_anomaly else "Info",
+                        "metadata": {
+                            "model_name": "eCyber_anomaly_isolation",
+                            "features_contributing": {}
+                        }
+                    }
+
+                    # Serialize contributing features
+                    contributing_data = {}
+                    for feature_name in self.anomaly_features:
+                        if feature_name in features:
+                            value = features[feature_name]
+                            try:
+                                json.dumps(value)  # Check serializability
+                                contributing_data[feature_name] = value
+                            except (TypeError, ValueError):
+                                contributing_data[feature_name] = str(value)
+                        else:
+                            contributing_data[feature_name] = None
+                            logger.warning(f"Anomaly model feature '{feature_name}' not found in extracted features.")
+
+                    anomaly_result["metadata"]["features_contributing"] = contributing_data
+
+                    if is_anomaly:
+                        self.sio_queue.put_nowait(("anomaly_alert", anomaly_result))
+                        logger.info(f"Anomaly detected: {anomaly_result['description']} from {anomaly_result['source_ip']}")
+
+                except Exception as anomaly_e:
+                    logger.error(f"Error during anomaly detection: {anomaly_e}", exc_info=True)
+            else:
+                logger.warning("Anomaly model, scaler, or threshold not loaded. Skipping anomaly detection.")
+
+            # ─── FLOW FINALIZATION ───
+            # self.packet_processor.process_packet(packet)
+
+        except Exception as e:
+            logger.debug("Feature extraction or ML scoring failed: %s", e)
+
+
+
     def _packet_handler(self, packet: Packet):
         """Main packet processing method with enhanced analysis"""
         
         self.start_time = time.perf_counter()
-        features = {}
 
         with self.packet_counter.get_lock():
             self.packet_counter.value += 1
@@ -929,23 +1155,7 @@ class PacketSniffer:
                 packet_info["protocol"] = self._get_protocol_name(packet)
             except Exception as e:
                 logger.debug("Protocol name resolution failed: %s", str(e))
-                packet_info["protocol"] = "Unknown"
-
-            # Log the packet now with accurate data
-            # logger.info(
-            #     "Packet Received: proto=%(protocol)s src=%(src_ip)s:%(src_port)s "
-            #     "dst=%(dst_ip)s:%(dst_port)s size=%(size)d flags=%(flags)s",
-            #     {
-            #         "protocol": packet_info["protocol"],
-            #         "src_ip": src_ip,
-            #         "src_port": packet_info.get("src_port", "N/A"),
-            #         "dst_ip": dst_ip,
-            #         "dst_port": packet_info.get("dst_port", "N/A"),
-            #         "size": packet_info["size"],
-            #         "flags": packet_info.get("flags", "N/A")
-            #     }
-            # )
-            
+                packet_info["protocol"] = "Unknown"            
             # --- Populate _endpoint_tracker (Task 4) ---
             if src_ip and dst_ip and packet_info.get("protocol") and packet_info.get("dst_port") is not None:
                 protocol_name = packet_info["protocol"]
@@ -969,21 +1179,6 @@ class PacketSniffer:
             try:
                 if packet.haslayer(HTTPRequest) or packet.haslayer(HTTPResponse):
                     self._analyze_http(packet)
-                    # logger.info(
-                    #     "HTTP %s %s%s",
-                    #     (
-                    #         packet[HTTPRequest].Method.decode(errors="replace")
-                    #         if packet.haslayer(HTTPRequest) else "Response"
-                    #     ),
-                    #     (
-                    #         packet[HTTPRequest].Host.decode(errors="replace")
-                    #         if packet.haslayer(HTTPRequest) else ""
-                    #     ),
-                    #     (
-                    #         packet[HTTPRequest].Path.decode(errors="replace")
-                    #         if packet.haslayer(HTTPRequest) else ""
-                    #     ),
-                    # )
 
                 elif packet.haslayer(DNS):
                     self._analyze_dns(packet)
@@ -1016,191 +1211,29 @@ class PacketSniffer:
                 self._process_payload_data(packet)
                 self._update_packet_stats(packet_info)
                 self._detect_common_threats(packet)
+                self.packet_info_queue.put(packet_info)
                 logger.debug("Processed packet from %s", src_ip)
             except Exception as e:
                 logger.error("Final processing error: %s", str(e))
                 logger.error("Traceback:\n%s", traceback.format_exc())
             # ── Feature Extraction ──
             
+            #@ Machine learning predictions
             try:
-                # Step 1: Extract CICIDS features
-                features = self.feature_extractor.extract_features(packet)
-
-                # Step 2: Prepare ML-ready vector
-                feature_vector = self.packet_processor.prepare_feature_vector(features)
-                if len(feature_vector) != len(EXPECTED_FEATURES):
-                    logger.warning(f"Feature vector size mismatch: got {len(feature_vector)}, expected {len(EXPECTED_FEATURES)}")
-
-
-                # Optional: Save for offline debugging
-                if len(features) > 1:
-                    save_feature_vectors_to_json(feature_vector)
-                    save_features_to_json(features)
-
-                # ── ML SCORING ──
-                # For each attack-specific model, scale & predict
-                for attack_name, model_data in self.models.items():
-                    scaler = model_data["scaler"]
-                    model = model_data["model"]
-                    thresh = model_data["threshold"]
-                    # features_list = model_data["features"] # Available if needed for specific vector transformation
-
-                    # Ensure feature_vector is in the correct order/format if features_list is used
-                    # For now, assuming feature_vector from packet_processor is already aligned with EXPECTED_FEATURES
-
-                   
-
-                    Xs = pd.DataFrame(feature_vector, columns=EXPECTED_FEATURES)
-                    Xs = scaler.transform(Xs)
-                    # shape (1,N) where N is num_features
-                    prob = float(model.predict_proba(Xs)[0,1])       # P(attack)
-                    if prob >= thresh:
-                        alert_id = f"ml_{attack_name.replace(' ', '_')}_{str(uuid.uuid4())[:8]}"
-
-                        # Determine severity (example heuristic)
-                        severity = "High" if prob > 0.9 else "Medium" if prob > 0.75 else "Low"
-                        if "DDoS" in attack_name or "Brute_Force" in attack_name: # Example: elevate severity for certain attack types
-                            severity = "Critical" if prob > 0.8 else "High"
-                        
-                        description = f"Machine learning model detected {attack_name.replace('_', ' ')} with {prob*100:.2f}% confidence."
-                        
-                        source_ip_val = features.get('Src IP', packet_info.get('src_ip', 'N/A'))
-                        destination_ip_val = features.get('Dst IP', packet_info.get('dst_ip', 'N/A'))
-                        destination_port_val = features.get('Dst Port', packet_info.get('dst_port', 0))
-                        
-                        protocol_val_numeric = features.get('Protocol', packet_info.get('protocol_num')) # Assuming protocol_num if direct from packet_info
-                        
-                        # Ensure protocol_for_alert is a string name
-                        protocol_map_for_alert = {6: "TCP", 17: "UDP", 1: "ICMP"}
-                        protocol_str = protocol_map_for_alert.get(protocol_val_numeric)
-                        if not protocol_str: # If not found in map, try to get from packet_info['protocol'] (string name) or default
-                            protocol_str = packet_info.get('protocol', str(protocol_val_numeric))
-
-
-                        alert = {
-                            "id": alert_id,
-                            "timestamp": datetime.utcnow().isoformat() + "Z",
-                            "severity": severity,
-                            "source_ip": source_ip_val,
-                            "destination_ip": destination_ip_val,
-                            "destination_port": int(destination_port_val) if isinstance(destination_port_val, (str, float)) and str(destination_port_val).isdigit() else destination_port_val if isinstance(destination_port_val, int) else 0,
-                            "protocol": protocol_str,
-                            "description": description,
-                            "threat_type": attack_name.replace('_', ' '),
-                            "rule_id": f"ml_model_{attack_name.replace(' ', '_')}",
-                            "metadata": {
-                                "probability": round(prob, 4),
-                                "model_name": attack_name, # Original attack name from model iteration
-                                "features_contributing": {k: v for k, v in features.items() if v != 0}, # Send non-zero features
-                                # "model_algorithm": model.__class__.__name__ # Example if model object has algo info
-                            }
-                        }
-
-                        # NEW: Dynamic event name
-                        socket_event_name = f"{attack_name.upper().replace(' ', '_')}_ALERT"
-
-                        try:
-                            self.sio_queue.put_nowait((socket_event_name, alert)) # USE NEW EVENT NAME
-                            logger.warm(f"ML_MODEL DETETECTED: ", alert)
-                        except Full:
-                            logger.warning(f"{socket_event_name} queue full, dropping: {alert_id}")
-
-                # ── Anomaly Detection ──
-                if self.anomaly_model and self.anomaly_scaler and self.anomaly_threshold_value is not None:
-                    # feature_vector is already prepared based on EXPECTED_FEATURES by self.packet_processor
-                    # self.anomaly_features should also align with EXPECTED_FEATURES (which is the default)
-                    # The scaler expects a 2D array, hence [feature_vector]
-                    try:
-                        anomaly_feature_df = pd.DataFrame([feature_vector], columns=self.anomaly_features)
-                        anomaly_scaled = self.anomaly_scaler.transform(anomaly_feature_df)
-
-                        score = self.anomaly_model.decision_function(anomaly_scaled)[0]
-                        # For IsolationForest, lower scores are more anomalous.
-                        # The threshold is typically a negative value for anomalies.
-                        is_anomaly = int(score < self.anomaly_threshold_value)
-
-                        anomaly_result = {
-                            "id": f"anomaly_{str(uuid.uuid4())[:8]}",
-                            "timestamp": datetime.utcnow().isoformat() + "Z",
-                            "source_ip": features.get('Src IP', packet_info.get('src_ip', 'N/A')),
-                            "destination_ip": features.get('Dst IP', packet_info.get('dst_ip', 'N/A')),
-                            # Ensure destination_port is an int
-                            "destination_port": int(features.get('Dst Port', packet_info.get('dst_port', 0))),
-                            "protocol": packet_info.get('protocol', 'N/A'),
-                            "anomaly_score": round(score, 4),
-                            "threshold": self.anomaly_threshold_value,
-                            "is_anomaly": is_anomaly,
-                            "description": f"Anomaly detected with score {score:.4f} (threshold: {self.anomaly_threshold_value}).",
-                            "threat_type": "Anomaly", # General type for anomaly
-                            "severity": "Medium" if is_anomaly else "Info", # Example severity
-                            "metadata": {
-                                "model_name": "eCyber_anomaly_isolation",
-                                # "features_contributing": {k: v for k, v in features.items() if v != 0 and isinstance(v, (int, float))}, # Send non-zero numeric features
-                                "features_contributing": {}, # Placeholder, will be populated below
-                                # "original_packet_info": packet.summary() # Optional: if a summary is needed
-                            }
-                        }
-                        
-                        # Populate features_contributing for anomaly_result
-                        contributing_data = {}
-                        if features: # Ensure features dictionary is not None or empty
-                            for feature_name in self.anomaly_features: # self.anomaly_features is loaded during __init__
-                                if feature_name in features:
-                                    value = features[feature_name]
-                                    # Ensure the value is of a type that can be serialized to JSON
-                                    if isinstance(value, (str, int, float, bool)) or value is None:
-                                        contributing_data[feature_name] = value
-                                    elif isinstance(value, (list, dict)): # If it's already a list or dict
-                                        try:
-                                            json.dumps(value) # Test serializability
-                                            contributing_data[feature_name] = value
-                                        except TypeError:
-                                            contributing_data[feature_name] = str(value) # Fallback to string
-                                    else:
-                                        # Attempt to convert other types to string; numpy types might need this
-                                        try:
-                                            contributing_data[feature_name] = str(value)
-                                        except Exception:
-                                            logger.warning(f"Could not serialize feature '{feature_name}' of type {type(value)} for anomaly alert, falling back to generic string.")
-                                            contributing_data[feature_name] = "SERIALIZATION_ERROR"
-                                else:
-                                    # Feature expected by the model is missing from extracted features
-                                    contributing_data[feature_name] = None 
-                                    logger.warning(f"Anomaly model feature '{feature_name}' not found in extracted features for current flow. Setting to None.")
-                        
-                        anomaly_result["metadata"]["features_contributing"] = contributing_data
-
-
-                        if is_anomaly: # Only send alert if it's an anomaly
-                            self.sio_queue.put_nowait(("anomaly_alert", anomaly_result))
-                            logger.info(f"Anomaly detected: {anomaly_result['description']} from {anomaly_result['source_ip']}")
-
-                    except Exception as anomaly_e:
-                        logger.error(f"Error during anomaly detection: {anomaly_e}", exc_info=True)
-
-                else:
-                    logger.warning("Anomaly model, scaler, or threshold not loaded. Skipping anomaly detection.")
-                
-                # Step 3: Update flow state & export on flow end
-                self.packet_processor.process_packet(packet)
-
-                # Periodic cleanup/backup of long‐lived flows
-                if self.packet_counter.value % 300 == 0:
-                    self.feature_extractor.cleanup_old_flows(timeout=60.0)
-
-            except Exception as e:
-                logger.debug("Feature extraction or ML scoring failed: %s", e)
+                self._flow_session.process(packet)
+            except Exception:
+                logger.exception("FlowSession.process failed")
 
             # ── Rule-Based Threat Detection ──
-            try:
-                threats = self.threat_detector.detect_threats(packet)
-                for threat in threats:
-                    try:
-                        self.sio_queue.put_nowait(("threat_detected", threat))
-                    except Full:
-                        logger.warning("sio_queue is full. Dropping event: threat_detected")
-            except Exception as e:
-                logger.debug("Threat detection failed: %s", e)
+            # try:
+            #     threats = self.threat_detector.detect_threats(packet)
+            #     for threat in threats:
+            #         try:
+            #             self.sio_queue.put_nowait(("threat_detected", threat))
+            #         except Full:
+            #             logger.warning("sio_queue is full. Dropping event: threat_detected")
+            # except Exception as e:
+            #     logger.debug("Threat detection failed: %s", e)
 
             # ── Emit Packet Summary ──
             
@@ -2832,57 +2865,73 @@ class PacketSniffer:
 
     def _analyze_dns(self, packet: Packet):
         """Enhanced DNS analysis with TTL monitoring"""
+        
         try:
-            dns = packet[DNS]
-            ip = packet[IP]
+            ip  = packet.getlayer(IP)
+            dns = packet.getlayer(DNS)
 
-            queries = []
+            queries   = []
             responses = []
 
-            # Query processing
-            if dns.qr == 0 and dns.qd:  # Query
-                queries.append({
-                    "name": dns.qd.qname.decode(errors="replace").strip('.') if dns.qd.qname else "",
-                    "type": int(dns.qd.qtype),
-                })
+            if dns:
+                # --- QUERY processing ---
+                if dns.qr == 0 and dns.qd:
+                    # dns.qd is DNSQR or a list of them
+                    qlist = dns.qd if isinstance(dns.qd, list) else [dns.qd]
+                    for q in qlist:
+                        qname = getattr(q, "qname", b"")
+                        queries.append({
+                            "name": qname.decode(errors="replace").rstrip("."),
+                            "type": int(getattr(q, "qtype", 0)),
+                        })
 
-            # Response processing
-            elif dns.qr == 1 and dns.an:  # Response
-                for answer in dns.an:
-                    responses.append({
-                        "name": answer.rrname.decode(errors="replace").strip('.') if answer.rrname else "",
-                        "type": int(answer.type),
-                        "ttl": int(answer.ttl),
-                        "data": str(answer.rdata) if hasattr(answer, "rdata") else None,
-                    })
+                # --- RESPONSE processing ---
+                elif dns.qr == 1 and dns.an:
+                    # dns.an is DNSRR or a list of them
+                    alist = dns.an if isinstance(dns.an, list) else [dns.an]
+                    for ans in alist:
+                        rrname = getattr(ans, "rrname", b"")
+                        data   = getattr(ans, "rdata", None)
+                        # if rdata is bytes or an object with to_text(), convert cleanly:
+                        if hasattr(data, "to_text"):
+                            data = data.to_text()
+                        else:
+                            data = str(data) if data is not None else None
 
-            # --- Refine dns_activity payload (Task 5) ---
-            dns_payload = {
-                "id": f"dns_{datetime.utcnow().timestamp()}_{ip.src}",
-                "timestamp": datetime.utcnow().isoformat(),
-                "source_ip": ip.src,
-                "queries": [{"query_name": q.get("name"), "query_type": q.get("type")} for q in queries],
-                "responses": [{"name": r.get("name"), "type": r.get("type"), "ttl": r.get("ttl"), "response_data": r.get("data")} for r in responses],
-                "is_suspicious": any(q.get("type", 0) in {12, 16, 255} for q in queries), # Common suspicious query types (TXT, NULL, ANY)
-                "tunnel_detected": bool(self._detect_dns_tunneling(queries, responses)),
-                "dga_score": float(self._calculate_dga_score(queries)),
-                "nxdomain_ratio": float(self._get_nxdomain_ratio(queries)), 
-                "unique_domains_queried": int(len({q.get("name") for q in queries if q.get("name")})),
-                "query_chain_depth": len([rr for rr in responses if rr.get("type") == 5]), 
-                "ttl_variation": float(np.std([r["ttl"] for r in responses if r.get("ttl") is not None])) if responses and any(r.get("ttl") is not None for r in responses) else 0.0,
-                "subdomain_entropy": float(self._calculate_subdomain_entropy(queries)),
-                "ttl_anomaly": False # Default, updated below
-            }
-            
-            # TTL Anomaly Check
-            if dns_payload["responses"] and any(r.get("ttl") is not None for r in dns_payload["responses"]):
-                valid_ttls = [r["ttl"] for r in dns_payload["responses"] if r.get("ttl") is not None]
-                if valid_ttls: # Ensure valid_ttls is not empty before division
-                    avg_ttl = sum(valid_ttls) / len(valid_ttls)
-                    dns_payload["ttl_anomaly"] = bool(avg_ttl < 30) 
-            
-            self.sio_queue.put_nowait(("dns_activity", dns_payload))
-            # --- End Refine dns_activity payload ---
+                        responses.append({
+                            "name": rrname.decode(errors="replace").rstrip("."),
+                            "type": int(getattr(ans, "type", 0)),
+                            "ttl":  int(getattr(ans, "ttl",  0)),
+                            "data": data,
+                        })
+
+                # --- Refine dns_activity p`ayload (Task 5) ---
+                dns_payload = {
+                    "id": f"dns_{datetime.utcnow().timestamp()}_{ip.src}",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "source_ip": ip.src,
+                    "queries": [{"query_name": q.get("name"), "query_type": q.get("type")} for q in queries],
+                    "responses": [{"name": r.get("name"), "type": r.get("type"), "ttl": r.get("ttl"), "response_data": r.get("data")} for r in responses],
+                    "is_suspicious": any(q.get("type", 0) in {12, 16, 255} for q in queries), # Common suspicious query types (TXT, NULL, ANY)
+                    "tunnel_detected": bool(self._detect_dns_tunneling(queries, responses)),
+                    "dga_score": float(self._calculate_dga_score(queries)),
+                    "nxdomain_ratio": float(self._get_nxdomain_ratio(queries)), 
+                    "unique_domains_queried": int(len({q.get("name") for q in queries if q.get("name")})),
+                    "query_chain_depth": len([rr for rr in responses if rr.get("type") == 5]), 
+                    "ttl_variation": float(np.std([r["ttl"] for r in responses if r.get("ttl") is not None])) if responses and any(r.get("ttl") is not None for r in responses) else 0.0,
+                    "subdomain_entropy": float(self._calculate_subdomain_entropy(queries)),
+                    "ttl_anomaly": False # Default, updated below
+                }
+                
+                # TTL Anomaly Check
+                if dns_payload["responses"] and any(r.get("ttl") is not None for r in dns_payload["responses"]):
+                    valid_ttls = [r["ttl"] for r in dns_payload["responses"] if r.get("ttl") is not None]
+                    if valid_ttls: # Ensure valid_ttls is not empty before division
+                        avg_ttl = sum(valid_ttls) / len(valid_ttls)
+                        dns_payload["ttl_anomaly"] = bool(avg_ttl < 30) 
+                
+                self.sio_queue.put_nowait(("dns_activity", dns_payload))
+                # --- End Refine dns_activity payload ---
 
         except Exception as e:
             logger.error(f"DNS analysis failed: {str(e)}", exc_info=True)
@@ -3367,7 +3416,26 @@ class PacketSniffer:
         
         # This event was for the old AsyncSniffer direct control, may not be needed or used the same way
         if self._stop_event and not self._stop_event.is_set(): # Ensure it's set if other parts rely on it
-             self._stop_event.set()
+            self._stop_event.set()
+            if hasattr(self, "_flow_flush_thread"):
+                self._flow_flush_thread.join(timeout=5)
+                if self._flow_flush_thread.is_alive():
+                    logger.warning("Flow-flush thread did not exit cleanly.")
+                else:
+                    logger.info("Flow-flush thread stopped.")
+
+            # 5) Join the ML-consumer thread
+            if hasattr(self, "_ml_consumer_thread"):
+                self._ml_consumer_thread.join(timeout=5)
+                if self._ml_consumer_thread.is_alive():
+                    logger.warning("ML-consumer thread did not exit cleanly.")
+                else:
+                    logger.info("ML-consumer thread stopped.")
+
+            # 6) Finally, stop the sniffer itself
+            if sniffer := getattr(self, "sniffer", None):
+                sniffer.stop()
+                logger.info("AsyncSniffer stopped.")
 
         logger.info("Processed %d packets in %.2f seconds", self.packet_counter.value, (self.end_time - self.start_time))
         

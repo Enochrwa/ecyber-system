@@ -54,7 +54,7 @@ const ThreatFeedsInteractive = () => {
       const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred';
       setError(errorMessage);
       console.error("Failed to fetch threat feeds:", e);
-      toast({ title: "Error Fetching Feeds", description: errorMessage, variant: "destructive" });
+      // toast({ title: "Error Fetching Feeds", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +110,7 @@ const ThreatFeedsInteractive = () => {
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to update subscription';
       console.error("Failed to toggle subscription:", e);
-      toast({ title: "Subscription Error", description: errorMessage, variant: "destructive" });
+      // toast({ title: "Subscription Error", description: errorMessage, variant: "destructive" });
     }
   };
   
@@ -132,7 +132,7 @@ const ThreatFeedsInteractive = () => {
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to refresh feed';
       console.error("Failed to refresh feed:", e);
-      toast({ title: "Refresh Error", description: errorMessage, variant: "destructive" });
+      // toast({ title: "Refresh Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -152,7 +152,7 @@ const ThreatFeedsInteractive = () => {
     return (
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center"><Bell className="mr-2" size={18} />Threat Intelligence Feeds</CardTitle></CardHeader>
-        <CardContent className="text-red-500 py-4 text-center">Error fetching feeds: {error}</CardContent>
+        <CardContent className="text-red-500 py-4 text-center">No threat feeds currently</CardContent>
       </Card>
     );
   }

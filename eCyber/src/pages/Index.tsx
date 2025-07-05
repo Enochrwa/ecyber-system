@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RootState } from "@/app/store";
 import { setAuthModalState } from "@/app/slices/displaySlice"
 import { useSelector, useDispatch } from "react-redux"
-import AuthModal from './AuthModal';
+// import AuthModal from './AuthModal';
 import DemoVideo from "../utils/DemoVideo"
 import { Link } from "react-router-dom";
 
@@ -329,7 +329,7 @@ const Index = () => {
           </nav>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <motion.button
+            {/* <motion.button
               onClick={() => dispatch(setAuthModalState(!isAuthModalOpen))}
               whileHover={{ 
                 scale: 1.05, 
@@ -338,7 +338,7 @@ const Index = () => {
               className="px-4 py-2 sm:px-6 sm:py-2 border border-cyan-400 text-cyan-400 hover:bg-cyan-500/10 transition-all duration-200 backdrop-blur-sm font-medium tracking-wider text-xs sm:text-sm"
             >
               SIGN IN
-            </motion.button>
+            </motion.button> */}
             <motion.button
               onClick={() => setIsVideoOpen(!isVideoOpen)}
               whileHover={{ 
@@ -601,7 +601,7 @@ const Index = () => {
           </div>
         </motion.footer>
       </div>
-      <AuthModal/>
+      {/* <AuthModal/> */}
       <DemoVideo isVideoOpen={isVideoOpen} setIsVideoOpen={setIsVideoOpen}/>
     </>
   );

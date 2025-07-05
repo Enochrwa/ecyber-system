@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx';
 import './index.css';
-import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
+// import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -43,9 +43,9 @@ createRoot(rootElement).render(
               <Toaster />
               <Sonner />
               <BrowserRouter>
-               <AuthProvider>
+               
                   <App/>
-                </AuthProvider>
+               
               </BrowserRouter>
             </TooltipProvider>
           </ThemeProvider>

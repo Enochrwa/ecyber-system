@@ -27,7 +27,7 @@ import Alerts from "./alert/Alerts";
 import usePacketSniffer from "./hooks/usePacketSnifferSocket";
 import RegisterPage from "./pages/Register";
 import CyberLoader from "./utils/Loader"
-import AuthModal from "./pages/AuthModal";
+// import AuthModal from "./pages/AuthModal";
 // import LoadingSpinner from "./utils/LoadingSpinner";
 import { useSelector, useDispatch } from "react-redux" // Added useDispatch
 import { RootState } from "@/app/store"
@@ -103,7 +103,7 @@ const App = () => {
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <AuthModal />
+      {/* <AuthModal /> */}
     </>
   );
 };

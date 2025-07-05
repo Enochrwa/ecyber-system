@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
+import time
 import asyncio
 import logging
 import time
@@ -342,7 +343,8 @@ async def create_app() -> FastAPI:
         try:
             # loop = asyncio.get_running_loop()
             # await loop.run_in_executor(None, sniffer.start, "Wi-Fi"
-
+            await sniffer_service.start()
+            await sniffer.start("enp0s8")
             await monitor.start()
             await ips.start()
             logger.info("System monitoring started")
@@ -372,7 +374,10 @@ async def create_app() -> FastAPI:
         finally:
             # Shutdown tasks
             logger.info("🛑 Gracefully shutting down...")
-
+            if sniffer_service:
+                sniffer_service.stop()
+            if sniffer:
+                sniffer.stop()
             # Shutdown enhanced security components
             if enhanced_ip_blocker:
                 await enhanced_ip_blocker.stop()
@@ -492,6 +497,11 @@ async def _on_start_sniffing(sid, data):
     global sniffer, sniffer_service
     try:
         interface = data.get("sniffingInterface", "enp0s8")
+        # if sniffer_service:
+        #     sniffer_service.stop()
+        # if sniffer:
+        #     sniffer.stop()
+        # time.sleep(10)
         await sniffer_service.start()
         await sniffer.start(interface)
         await sio.emit("sniffing_started", {"interface": interface}, to=sid)
@@ -510,6 +520,7 @@ async def _on_stop_sniffing(sid):
             sniffer.stop()
 
             logger.info("PacketSniffer stopped.")
+        
         if sniffer_service:
             await sniffer_service.stop()
         await sio.emit("sniffing_stopped", to=sid)
