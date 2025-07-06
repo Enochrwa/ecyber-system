@@ -36,14 +36,14 @@ random_forest = joblib.load("trained_models/multiclass/results/best_model_random
 random_forest_scaler = joblib.load("trained_models/multiclass/results/scaler.pkl")
 
 # ─── Example Usage ──────────────────────────────────────────
-if __name__ == "__main__":
-    try:
-        raw = pd.read_csv("port_scan_features.csv")
-        flows = process_flows(raw)
-        vectors = prepare_input_for_prediction(flows)
-        X_scaled = port_scan_scaler.fit_transform(vectors)
-        results = port_scan.predict(X_scaled)
+# if __name__ == "__main__":
+#     try:
+#         raw = pd.read_csv("port_scan_features.csv")
+#         flows = process_flows(raw)
+#         vectors = prepare_input_for_prediction(flows)
+#         X_scaled = port_scan_scaler.fit_transform(vectors)
+#         results = port_scan.predict(X_scaled)
         
-        print(f"Results: {results}")
-    except Exception as e:
-        logger.error(f"Prediction pipeline failed: {e}")
+#         print(f"Results: {results}")
+#     except Exception as e:
+#         logger.error(f"Prediction pipeline failed: {e}")
