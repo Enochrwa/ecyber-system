@@ -1235,3 +1235,41 @@
 2025-07-06 06:25:52 - main - INFO - Database optimizer initialized successfully
 2025-07-06 06:25:54 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
 2025-07-06 06:25:56 - main - INFO - System monitoring started
+2025-07-06 13:05:26 - main - INFO - Database initialized successfully
+2025-07-06 13:05:26 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-06 13:05:26 - main - INFO - Initializing background services...
+2025-07-06 13:05:26 - main - INFO - Enhanced IP Blocker initialized
+2025-07-06 13:05:26 - main - INFO - Advanced Signature Engine initialized
+2025-07-06 13:05:28 - main - INFO - Advanced Phishing Blocker initialized
+2025-07-06 13:05:28 - main - INFO - SIEM Integration initialized successfully
+2025-07-06 13:05:28 - main - INFO - Performance optimizer initialized successfully
+2025-07-06 13:05:30 - main - WARNING - Performance optimization failed to start: Error Multiple exceptions: [Errno 111] Connect call failed ('::1', 6379, 0, 0), [Errno 111] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.
+2025-07-06 13:05:30 - main - WARNING - Continuing without performance optimization
+2025-07-06 13:05:30 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-06 13:05:30 - main - INFO - System monitoring started
+2025-07-06 13:15:32 - main - INFO - 🛑 Gracefully shutting down...
+2025-07-06 13:16:14 - main - INFO - Database initialized successfully
+2025-07-06 13:16:14 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-06 13:16:14 - main - INFO - Initializing background services...
+2025-07-06 13:16:14 - main - INFO - Enhanced IP Blocker initialized
+2025-07-06 13:16:15 - main - INFO - Advanced Signature Engine initialized
+2025-07-06 13:16:17 - main - INFO - Advanced Phishing Blocker initialized
+2025-07-06 13:16:17 - main - INFO - SIEM Integration initialized successfully
+2025-07-06 13:16:17 - main - INFO - Performance optimizer initialized successfully
+2025-07-06 13:16:19 - main - WARNING - Performance optimization failed to start: Error Multiple exceptions: [Errno 111] Connect call failed ('::1', 6379, 0, 0), [Errno 111] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.
+2025-07-06 13:16:19 - main - WARNING - Continuing without performance optimization
+2025-07-06 13:16:19 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-06 13:16:19 - main - INFO - System monitoring started
+2025-07-06 13:27:13 - main - INFO - 🛑 Gracefully shutting down...
+2025-07-06 13:28:00 - main - INFO - Database initialized successfully
+2025-07-06 13:28:01 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-06 13:28:01 - main - INFO - Initializing background services...
+2025-07-06 13:28:01 - main - INFO - Enhanced IP Blocker initialized
+2025-07-06 13:28:01 - main - INFO - Advanced Signature Engine initialized
+2025-07-06 13:28:03 - main - INFO - Advanced Phishing Blocker initialized
+2025-07-06 13:28:03 - main - INFO - SIEM Integration initialized successfully
+2025-07-06 13:28:03 - main - INFO - Performance optimizer initialized successfully
+2025-07-06 13:28:05 - main - WARNING - Performance optimization failed to start: Error Multiple exceptions: [Errno 111] Connect call failed ('::1', 6379, 0, 0), [Errno 111] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.
+2025-07-06 13:28:05 - main - WARNING - Continuing without performance optimization
+2025-07-06 13:28:05 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-06 13:28:06 - main - INFO - System monitoring started

@@ -1,0 +1,192 @@
+{
+  "timestamp": "20250706_121848",
+  "classification_type": "multiclass",
+  "dataset_info": {
+    "shape": [
+      95000,
+      77
+    ],
+    "features": 75,
+    "samples": 95000,
+    "n_classes": 6,
+    "class_names": [
+      "BENIGN",
+      "Brute Force",
+      "DDoS",
+      "DoS",
+      "Port Scan",
+      "Web Attack"
+    ]
+  },
+  "model_params": {
+    "n_estimators": 1000,
+    "max_depth": 10,
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "feature_fraction": 0.8,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 5,
+    "min_child_samples": 20,
+    "class_weight": "balanced",
+    "random_state": 42,
+    "n_jobs": -1,
+    "verbosity": -1,
+    "objective": "multiclass",
+    "metric": "multi_logloss"
+  },
+  "training_info": {
+    "best_iteration": 145,
+    "early_stopping_rounds": 100
+  },
+  "performance": {
+    "accuracy": 0.9302105263157895,
+    "f1_macro": 0.8874662464514599,
+    "f1_micro": 0.9302105263157895,
+    "f1_weighted": 0.9196472415518493,
+    "auc_ovr_macro": 0.9846196625544662,
+    "auc_ovr_weighted": 0.98827289374785,
+    "classification_report": {
+      "BENIGN": {
+        "precision": 0.9993996998499249,
+        "recall": 0.9989,
+        "f1-score": 0.9991497874468617,
+        "support": 10000.0
+      },
+      "Brute Force": {
+        "precision": 0.998003992015968,
+        "recall": 1.0,
+        "f1-score": 0.999000999000999,
+        "support": 1000.0
+      },
+      "DDoS": {
+        "precision": 0.6963788300835655,
+        "recall": 1.0,
+        "f1-score": 0.8210180623973727,
+        "support": 3000.0
+      },
+      "DoS": {
+        "precision": 1.0,
+        "recall": 0.346,
+        "f1-score": 0.5141158989598811,
+        "support": 2000.0
+      },
+      "Port Scan": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 2000.0
+      },
+      "Web Attack": {
+        "precision": 0.9900299102691924,
+        "recall": 0.993,
+        "f1-score": 0.9915127309036446,
+        "support": 1000.0
+      },
+      "accuracy": 0.9302105263157895,
+      "macro avg": {
+        "precision": 0.9473020720364418,
+        "recall": 0.88965,
+        "f1-score": 0.8874662464514599,
+        "support": 19000.0
+      },
+      "weighted avg": {
+        "precision": 0.9511140732123742,
+        "recall": 0.9302105263157895,
+        "f1-score": 0.9196472415518493,
+        "support": 19000.0
+      }
+    }
+  },
+  "cross_validation": {
+    "cv_scores": [
+      0.9290350877192982,
+      0.93,
+      0.929078947368421
+    ],
+    "mean_cv_accuracy": 0.9293713450292397,
+    "std_cv_accuracy": 0.0004448866682662095
+  },
+  "feature_names": [
+    "Destination Port",
+    "Flow Duration",
+    "Total Fwd Packets",
+    "Total Backward Packets",
+    "Total Length of Fwd Packets",
+    "Total Length of Bwd Packets",
+    "Fwd Packet Length Max",
+    "Fwd Packet Length Min",
+    "Fwd Packet Length Mean",
+    "Fwd Packet Length Std",
+    "Bwd Packet Length Max",
+    "Bwd Packet Length Min",
+    "Bwd Packet Length Mean",
+    "Bwd Packet Length Std",
+    "Avg Fwd Bytes/Bulk",
+    "Avg Bwd Bytes/Bulk",
+    "Avg Fwd Packets/Bulk",
+    "Avg Bwd Packets/Bulk",
+    "Fwd Bulk Rate Avg",
+    "Bwd Bulk Rate Avg",
+    "Flow Bytes/s",
+    "Flow Packets/s",
+    "Flow IAT Mean",
+    "Flow IAT Std",
+    "Flow IAT Max",
+    "Flow IAT Min",
+    "Fwd IAT Total",
+    "Fwd IAT Mean",
+    "Fwd IAT Std",
+    "Fwd IAT Max",
+    "Fwd IAT Min",
+    "Bwd IAT Total",
+    "Bwd IAT Mean",
+    "Bwd IAT Std",
+    "Bwd IAT Max",
+    "Bwd IAT Min",
+    "Fwd PSH Flags",
+    "Fwd URG Flags",
+    "Fwd Header Length",
+    "Bwd Header Length",
+    "Fwd Packets/s",
+    "Bwd Packets/s",
+    "Min Packet Length",
+    "Max Packet Length",
+    "Packet Length Mean",
+    "Packet Length Std",
+    "Packet Length Variance",
+    "FIN Flag Count",
+    "SYN Flag Count",
+    "RST Flag Count",
+    "PSH Flag Count",
+    "ACK Flag Count",
+    "URG Flag Count",
+    "CWE Flag Count",
+    "ECE Flag Count",
+    "Down/Up Ratio",
+    "Average Packet Size",
+    "Avg Fwd Segment Size",
+    "Avg Bwd Segment Size",
+    "Subflow Fwd Packets",
+    "Subflow Fwd Bytes",
+    "Subflow Bwd Packets",
+    "Subflow Bwd Bytes",
+    "Init_Win_bytes_forward",
+    "Init_Win_bytes_backward",
+    "act_data_pkt_fwd",
+    "min_seg_size_forward",
+    "Active Mean",
+    "Active Std",
+    "Active Max",
+    "Active Min",
+    "Idle Mean",
+    "Idle Std",
+    "Idle Max",
+    "Idle Min"
+  ],
+  "paths": {
+    "model": "ml/lgbm\\multiclass_model_20250706_121848\\model.joblib",
+    "scaler": "ml/lgbm\\multiclass_model_20250706_121848\\scaler.joblib",
+    "label_encoder": "ml/lgbm\\multiclass_model_20250706_121848\\label_encoder.joblib",
+    "output_dir": "ml/lgbm\\multiclass_model_20250706_121848"
+  }
+}

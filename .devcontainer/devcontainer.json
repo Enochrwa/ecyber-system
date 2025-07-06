@@ -1,8 +1,13 @@
 {
-  "name": "Python 3.11.9",
+  "name": "Python 3.11.9 + Node.js",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
     "ghcr.io/devcontainers/features/python:1": {
       "version": "3.11.9"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
     }
-  }
+  },
+  "postCreateCommand": "sudo ln -sf /usr/local/bin/python3.11 /usr/local/bin/python && python --version && node --version && npm --version"
 }

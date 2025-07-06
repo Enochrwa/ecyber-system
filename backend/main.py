@@ -344,7 +344,7 @@ async def create_app() -> FastAPI:
             # loop = asyncio.get_running_loop()
             # await loop.run_in_executor(None, sniffer.start, "Wi-Fi"
             await sniffer_service.start()
-            await sniffer.start("enp0s8")
+            await sniffer.start("Wi-Fi")
             await monitor.start()
             await ips.start()
             logger.info("System monitoring started")
