@@ -282,73 +282,73 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
   };
 
   // PredictionItem component needs to be updated to use DisplayablePrediction type
-  const PredictionItem: React.FC<{ prediction: DisplayablePrediction }> = ({ prediction }) => {
-    // Determine typeConfig based on DisplayablePrediction's predictionType
-    // The original MLPrediction interface had a more detailed 'predictionType'
-    // We'll map based on what we have.
-    let typeKey: keyof typeof modelTypeConfig = 'classification'; // Default
-    if (prediction.predictionType === 'threat') typeKey = 'threat';
-    else if (prediction.predictionType === 'anomaly') typeKey = 'anomaly';
+  // const PredictionItem: React.FC<{ prediction: DisplayablePrediction }> = ({ prediction }) => {
+  //   // Determine typeConfig based on DisplayablePrediction's predictionType
+  //   // The original MLPrediction interface had a more detailed 'predictionType'
+  //   // We'll map based on what we have.
+  //   let typeKey: keyof typeof modelTypeConfig = 'classification'; // Default
+  //   if (prediction.predictionType === 'threat') typeKey = 'threat';
+  //   else if (prediction.predictionType === 'anomaly') typeKey = 'anomaly';
     
-    const typeConfig = modelTypeConfig[typeKey];
-    const TypeIcon = typeConfig.icon;
+  //   const typeConfig = modelTypeConfig[typeKey];
+  //   const TypeIcon = typeConfig.icon;
 
 
-    return (
-      <div className={cn(
-        "p-4 rounded-lg border transition-all hover:shadow-md",
-        getConfidenceBgColor(prediction.confidence) // Ensure this function exists or is adapted
-      )}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 flex-1">
-            <TypeIcon className={cn("w-5 h-5 mt-0.5", typeConfig.color)} />
+  //   return (
+  //     <div className={cn(
+  //       "p-4 rounded-lg border transition-all hover:shadow-md",
+  //       getConfidenceBgColor(prediction.confidence) // Ensure this function exists or is adapted
+  //     )}>
+  //       <div className="flex items-start justify-between gap-3">
+  //         <div className="flex items-start gap-3 flex-1">
+  //           <TypeIcon className={cn("w-5 h-5 mt-0.5", typeConfig.color)} />
             
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <h4 className="font-medium text-sm">{prediction.modelName}</h4>
-                <Badge variant="outline" className="text-xs">
-                  {typeConfig.label}
-                </Badge>
-                {prediction.anomalyDetected && (
-                  <Badge variant="outline" className="text-xs border-orange-500 text-orange-500">
-                    Anomaly
-                  </Badge>
-                )}
-              </div>
+  //           <div className="flex-1 min-w-0">
+  //             <div className="flex items-center gap-2 mb-2">
+  //               <h4 className="font-medium text-sm">{prediction.modelName}</h4>
+  //               <Badge variant="outline" className="text-xs">
+  //                 {typeConfig.label}
+  //               </Badge>
+  //               {prediction.anomalyDetected && (
+  //                 <Badge variant="outline" className="text-xs border-orange-500 text-orange-500">
+  //                   Anomaly
+  //                 </Badge>
+  //               )}
+  //             </div>
               
-              <div className="space-y-1 mb-3">
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Prediction:</span>{' '}
-                  <span className="font-medium">{prediction.prediction}</span>
-                </p>
-              </div>
+  //             <div className="space-y-1 mb-3">
+  //               <p className="text-sm">
+  //                 <span className="text-muted-foreground">Prediction:</span>{' '}
+  //                 <span className="font-medium">{prediction.prediction}</span>
+  //               </p>
+  //             </div>
               
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {/* Using ISO string directly, formatTimestamp can be re-applied if needed */}
-                  {new Date(prediction.timestamp).toLocaleString()} 
-                </span>
-                <span>
-                  Confidence: {(prediction.confidence * 100).toFixed(1)}%
-                </span>
-              </div>
-            </div>
-          </div>
+  //             <div className="flex items-center gap-4 text-xs text-muted-foreground">
+  //               <span className="flex items-center gap-1">
+  //                 <Clock className="w-3 h-3" />
+  //                 {/* Using ISO string directly, formatTimestamp can be re-applied if needed */}
+  //                 {new Date(prediction.timestamp).toLocaleString()} 
+  //               </span>
+  //               <span>
+  //                 Confidence: {(prediction.confidence * 100).toFixed(1)}%
+  //               </span>
+  //             </div>
+  //           </div>
+  //         </div>
           
-          <div className="text-right">
-            <div className={cn(
-              "text-lg font-bold",
-              getConfidenceColor(prediction.confidence) // Ensure this function exists or is adapted
-            )}>
-              {(prediction.confidence * 100).toFixed(1)}%
-            </div>
-            <div className="text-xs text-muted-foreground">Confidence</div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  //         <div className="text-right">
+  //           <div className={cn(
+  //             "text-lg font-bold",
+  //             getConfidenceColor(prediction.confidence) // Ensure this function exists or is adapted
+  //           )}>
+  //             {(prediction.confidence * 100).toFixed(1)}%
+  //           </div>
+  //           <div className="text-xs text-muted-foreground">Confidence</div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
   const ModelCard: React.FC<{ model: MLModel }> = ({ model }) => {
     const typeConfig = modelTypeConfig[model.type as keyof typeof modelTypeConfig];

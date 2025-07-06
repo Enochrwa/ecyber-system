@@ -21,7 +21,6 @@ async def get_threats(
     limit: int = 100,
     severity: str = None,
     time_range: str = "24h",
-    current_user: User = Depends(get_current_active_user)
 ):
     """Get detected threats with filtering options"""
     # Calculate time filter
@@ -68,13 +67,13 @@ async def get_threats(
 
 
 @router.get("/rules", response_model=List[Dict])
-async def get_signature_rules(current_user: User = Depends(get_current_active_user)):
+async def get_signature_rules():
     """Get all signature-based detection rules"""
     return signature_engine.get_rules()
 
 
 @router.post("/rules")
-async def add_signature_rule(rule: Dict, current_user: User = Depends(get_current_active_user)):
+async def add_signature_rule(rule: Dict):
     """Add a new signature rule"""
     if signature_engine.add_rule(rule):
         return JSONResponse(
@@ -86,7 +85,7 @@ async def add_signature_rule(rule: Dict, current_user: User = Depends(get_curren
 
 
 @router.get("/summary", response_model=Dict)
-async def get_threat_summary(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+async def get_threat_summary(db: AsyncSession = Depends(get_db)):
     """Get threat summary statistics"""
     # Last 24 hours
     time_filter = datetime.utcnow() - timedelta(hours=24)

@@ -436,7 +436,8 @@ const Dashboard = () => {
       setIsLoadingMlPredictions(true);
       setErrorMlPredictions(null);
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/v1/ml-models/predictions');
+        // http://127.0.0.1:8000/api/v1/models/list
+        const response = await fetch('http://127.0.0.1:8000/api/v1/models/predictions');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -483,11 +484,11 @@ const Dashboard = () => {
         const msg = e instanceof Error ? e.message : 'An unknown error occurred while fetching ML predictions';
         setErrorMlPredictions(msg);
         console.error("Failed to fetch ML predictions:", e);
-        toast({
-          title: "Error Fetching ML Predictions",
-          description: msg,
-          variant: "destructive",
-        });
+        // toast({
+        //   title: "Error Fetching ML Predictions",
+        //   description: msg,
+        //   variant: "destructive",
+        // });
       } finally {
         setIsLoadingMlPredictions(false);
       }

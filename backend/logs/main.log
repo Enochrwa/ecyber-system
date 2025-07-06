@@ -1273,3 +1273,26 @@
 2025-07-06 13:28:05 - main - WARNING - Continuing without performance optimization
 2025-07-06 13:28:05 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
 2025-07-06 13:28:06 - main - INFO - System monitoring started
+2025-07-06 21:06:04 - main - INFO - Database initialized successfully
+2025-07-06 21:06:19 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-06 21:06:19 - main - INFO - Initializing background services...
+2025-07-06 21:06:20 - main - INFO - Enhanced IP Blocker initialized
+2025-07-06 21:08:19 - main - INFO - Advanced Signature Engine initialized
+2025-07-06 21:08:51 - main - INFO - Advanced Phishing Blocker initialized
+2025-07-06 21:08:53 - main - INFO - SIEM Integration initialized successfully
+2025-07-06 21:08:53 - main - INFO - Performance optimizer initialized successfully
+2025-07-06 21:09:49 - main - WARNING - Performance optimization failed to start: Error 22 connecting to localhost:6379. The remote computer refused the network connection.
+2025-07-06 21:09:49 - main - WARNING - Continuing without performance optimization
+2025-07-06 21:13:59 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-06 21:52:15 - main - INFO - Database initialized successfully
+2025-07-06 21:52:26 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-06 21:52:26 - main - INFO - Initializing background services...
+2025-07-06 21:52:26 - main - INFO - Enhanced IP Blocker initialized
+2025-07-06 21:54:30 - main - INFO - Advanced Signature Engine initialized
+2025-07-06 21:55:03 - main - INFO - Advanced Phishing Blocker initialized
+2025-07-06 21:55:06 - main - INFO - SIEM Integration initialized successfully
+2025-07-06 21:55:07 - main - INFO - Performance optimizer initialized successfully
+2025-07-06 22:04:08 - main - WARNING - Performance optimization failed to start: Error 22 connecting to localhost:6379. The remote computer refused the network connection.
+2025-07-06 22:04:08 - main - WARNING - Continuing without performance optimization
+2025-07-06 22:11:13 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-06 22:29:23 - main - INFO - System monitoring started

@@ -62,12 +62,12 @@ import SystemMonitoring from '@/components/attack-simulations/SystemMonitoring';
 import { useTelemetrySocket } from '@/components/live-system/lib/socket';
 
 const classifierModels = [
-  { id: "Bot", name: "Bot Activity", socketEventName: "BOT_ALERT", icon: <Package size={20} /> },
+
   { id: "Brute_Force", name: "Brute Force", socketEventName: "BRUTE_FORCE_ALERT", icon: <Terminal size={20} /> },
   { id: "DDoS", name: "DDoS Attack", socketEventName: "DDOS_ALERT", icon: <Shield size={20} /> },
   { id: "DoS", name: "DoS Attack", socketEventName: "DOS_ALERT", icon: <AlertTriangle size={20} /> },
-  { id: "Heartbleed", name: "Heartbleed Exploit", socketEventName: "HEARTBLEED_ALERT", icon: <Database size={20} /> }, // Example icon
-  { id: "Infiltration", name: "Infiltration Attempt", socketEventName: "INFILTRATION_ALERT", icon: <User size={20} /> }, // Example icon
+  
+ 
   { id: "Port_Scan", name: "Port Scanning", socketEventName: "PORT_SCAN_ALERT", icon: <Network size={20} /> },
   { id: "Web_Attack", name: "Web Attack", socketEventName: "WEB_ATTACK_ALERT", icon: <Globe size={20} /> } // Example icon for Web Attack
 ];
@@ -81,12 +81,9 @@ const AttackSimulations = () => {
   // State for alerts
   const [alerts, setAlerts] = useState<Record<string, AlertData[]>>({
     // Initialize states for all classifier models
-    Bot: [],
     Brute_Force: [],
     DDoS: [],
     DoS: [],
-    Heartbleed: [],
-    Infiltration: [],
     Port_Scan: [],
     Web_Attack: [],
     // Keep other states as needed
@@ -97,9 +94,7 @@ const AttackSimulations = () => {
 
   useEffect(() => {
     if (socket) {
-      socket.on('interfaces', (data: any) => {
-        console.log("Network Interfaces: ", data);
-      });
+      
 
       const eventListeners: { eventName: string, handler: (data: any) => void }[] = [];
 

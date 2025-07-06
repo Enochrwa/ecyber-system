@@ -2390,7 +2390,8 @@ class EnterpriseIPS:
         rule_file: str,
         sio: socketio.AsyncServer,
         threat_intel: Optional[ThreatIntel] = None, # Added Optional
-        num_workers: int = multiprocessing.cpu_count(),
+        num_workers: int = 2,
+        # num_workers: int = multiprocessing.cpu_count(),
         input_queue: Optional[Queue] = None, # Added Optional
         output_queue: Optional[Queue] = None, # Added Optional
         ips_config: Optional[Dict[str, Any]] = None, # Added ips_config

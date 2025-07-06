@@ -6,3 +6,7 @@ main.spec
 routes.txt
 **/__pycache__/
 **/*.py[cod]
+
+# Ignore Python bytecode files
+__pycache__/
+*.py[cod]

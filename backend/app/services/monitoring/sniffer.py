@@ -11,6 +11,7 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 import re
 import math
+from scipy.spatial import distance
 import json
 import uuid # Added import
 import pandas as pd

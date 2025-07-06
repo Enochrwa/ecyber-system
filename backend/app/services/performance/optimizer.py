@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from collections import defaultdict, deque
-import resource
+# import resource
 import tracemalloc
 import sys
 import os

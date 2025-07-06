@@ -43,7 +43,6 @@ async def read_users(
 async def read_user( # Changed to async def
     user_id: int, 
     db: AsyncSession = Depends(get_db), 
-    current_user: User = Depends(get_current_active_user)
 ):
     # Assuming get_user is an async function; if it's sync, it needs to be run in a threadpool
     db_user = await get_user(db, user_id=user_id) 
