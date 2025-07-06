@@ -40,38 +40,56 @@ const Header = () => {
 
   // Set up Socket.IO client
   useEffect(() => {
-  
-    if(socket){
-
-      socket.on('new_alert', (newAlert: any) => {
+    // Handler for real-time socket alerts
+    if (socket) {
+      const handleNewAlert = (newAlert: any) => {
         console.log('Received new_alert:', newAlert);
         const formattedAlert: NotificationType = {
-          id: newAlert.id,
-          name: newAlert.name,
-          description: newAlert.description,
-          severity: newAlert.severity,
-          timestamp: newAlert.timestamp,
-          type: newAlert.type,
+          id: newAlert.id || `socket-alert-${Date.now()}`, // Ensure ID exists
+          name: newAlert.name || 'System Alert',
+          description: newAlert.description || 'A new alert has been triggered.',
+          severity: newAlert.severity || 'info',
+          timestamp: newAlert.timestamp || new Date().toISOString(),
+          type: newAlert.type || 'socket',
           read: false,
         };
-        setNotifications(prevNotifications => 
+        setNotifications(prevNotifications =>
           [formattedAlert, ...prevNotifications].slice(0, MAX_NOTIFICATIONS)
         );
-        // TODO: Consider showing a system toast notification here as well
-      });
-  
-      socket.on('disconnect', (reason) => {
-        console.log('Socket.IO disconnected:', reason);
-      });
-  
-      socket.on('connect_error', (error) => {
-        console.error('Socket.IO connection error:', error);
-      });
-  
+      };
+
+      socket.on('new_alert', handleNewAlert);
+      socket.on('disconnect', (reason) => console.log('Socket.IO disconnected:', reason));
+      socket.on('connect_error', (error) => console.error('Socket.IO connection error:', error));
+
+      // Cleanup socket listeners
       return () => {
-        socket.disconnect();
+        socket.off('new_alert', handleNewAlert);
+        // socket.disconnect(); // Potentially disconnect elsewhere if socket is shared
       };
     }
+  }, [socket]);
+
+  // Listener for custom event for ML predictions
+  useEffect(() => {
+    const handleMlPredictionEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<NotificationType[]>;
+      const newMlNotifications = customEvent.detail;
+
+      if (newMlNotifications && newMlNotifications.length > 0) {
+        setNotifications(prevNotifications =>
+          [...newMlNotifications, ...prevNotifications].slice(0, MAX_NOTIFICATIONS * 2) // Allow more notifs temporarily if many ML come at once
+            .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) // Re-sort by time
+            .slice(0, MAX_NOTIFICATIONS) // Then trim to max
+        );
+      }
+    };
+
+    window.addEventListener('mlPredictionNotification', handleMlPredictionEvent);
+
+    return () => {
+      window.removeEventListener('mlPredictionNotification', handleMlPredictionEvent);
+    };
   }, []);
 
   const handleMarkAllAsRead = () => {

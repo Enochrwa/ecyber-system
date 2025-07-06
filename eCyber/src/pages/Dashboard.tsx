@@ -216,6 +216,39 @@ const Dashboard = () => {
   const [generalSettingsData, setGeneralSettingsData] = useState<GeneralSettingsData | null>(null);
   const [isLoadingGeneralSettings, setIsLoadingGeneralSettings] = useState<boolean>(true);
   const [errorGeneralSettings, setErrorGeneralSettings] = useState<string | null>(null);
+
+  // State for ML Predictions
+  interface ClassProbabilities {
+    BENIGN?: number;
+    "Brute Force"?: number;
+    DDoS?: number;
+    DoS?: number;
+    "Port Scan"?: number;
+    "Web Attack"?: number;
+    [key: string]: number | undefined; // Allow other keys
+  }
+
+  interface MLPredictionItem {
+    index: number;
+    anomaly_detected: boolean;
+    true_label: string; // Might not be used in UI if it's for evaluation
+    predicted_label: string;
+    confidence: number;
+    class_probabilities: ClassProbabilities;
+  }
+
+  interface MLPredictionPayload {
+    last_modified: string; // ISO date string
+    predictions: MLPredictionItem[];
+  }
+  
+  interface AllMLPredictions {
+    [predictionType: string]: MLPredictionPayload | { error: string };
+  }
+
+  const [mlPredictionsData, setMlPredictionsData] = useState<AllMLPredictions | null>(null);
+  const [isLoadingMlPredictions, setIsLoadingMlPredictions] = useState<boolean>(true);
+  const [errorMlPredictions, setErrorMlPredictions] = useState<string | null>(null);
   
   // Determine active tab based on current route
   const activeTab = routeToTabMap[location.pathname] || 'overview';
@@ -398,6 +431,69 @@ const Dashboard = () => {
       }
     };
     fetchGeneralSettings();
+
+    const fetchMlPredictions = async () => {
+      setIsLoadingMlPredictions(true);
+      setErrorMlPredictions(null);
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/v1/ml-models/predictions');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data: AllMLPredictions = await response.json();
+        setMlPredictionsData(data);
+
+        // Dispatch event to send predictions to Header notifications
+        if (data) {
+          const mlNotificationsForHeader: any[] = []; // Define specific type if NotificationType is accessible here
+          Object.entries(data).forEach(([type, payload]) => {
+            if ('predictions' in payload && payload.predictions.length > 0) {
+              // Create a summary notification for each type, or for each prediction
+              // For simplicity, let's make one notification per loaded prediction file that has actual predictions
+              
+              // Determine severity based on predictions
+              let highestSeverity = "info"; // Default
+              payload.predictions.forEach(p => {
+                if (p.anomaly_detected && highestSeverity !== "critical") highestSeverity = "warning";
+                if (p.predicted_label && p.predicted_label.toLowerCase() !== "benign") {
+                     // Simple check: if not benign, could be warning or critical based on confidence or type
+                    if (p.confidence > 0.8) highestSeverity = "critical";
+                    else if (p.confidence > 0.6 && highestSeverity !== "critical") highestSeverity = "warning";
+                }
+              });
+
+              mlNotificationsForHeader.push({
+                id: `ml-pred-${type}-${payload.last_modified}`,
+                name: `ML: ${type.replace(/_/g, ' ')} Predictions`,
+                description: `${payload.predictions.length} predictions loaded. Highest severity: ${highestSeverity}. Click to see details.`,
+                severity: highestSeverity,
+                timestamp: payload.last_modified, // Use file's last_modified
+                type: 'ml_prediction', // Custom type for these notifications
+                read: false,
+              });
+            }
+          });
+
+          if (mlNotificationsForHeader.length > 0) {
+            const event = new CustomEvent('mlPredictionNotification', { detail: mlNotificationsForHeader });
+            window.dispatchEvent(event);
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'An unknown error occurred while fetching ML predictions';
+        setErrorMlPredictions(msg);
+        console.error("Failed to fetch ML predictions:", e);
+        toast({
+          title: "Error Fetching ML Predictions",
+          description: msg,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingMlPredictions(false);
+      }
+    };
+    fetchMlPredictions();
+
   }, []);
   
   // Handle tab change
@@ -946,7 +1042,11 @@ const Dashboard = () => {
 
                 {/* ML Predictions Display */}
                 <div className="mb-6">
-                  <MLPredictionsDisplay />
+                  <MLPredictionsDisplay 
+                    predictionsData={mlPredictionsData}
+                    isLoading={isLoadingMlPredictions}
+                    error={errorMlPredictions}
+                  />
                 </div>
 
                 {/* Inserted AnomalyInsightsSection here */}

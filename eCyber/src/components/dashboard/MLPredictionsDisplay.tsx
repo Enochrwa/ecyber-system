@@ -18,22 +18,58 @@ import {
   Eye,
   RefreshCw
 } from 'lucide-react';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/app/store';
+// import { useSelector } from 'react-redux'; // Not used directly with new props
+// import { RootState } from '@/app/store'; // Not used directly with new props
 import { cn } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
-interface MLPrediction {
-  id: string;
-  modelName: string;
-  predictionType: 'threat' | 'anomaly' | 'classification' | 'regression';
+// Interfaces from Dashboard.tsx for the props
+interface ClassProbabilities {
+  BENIGN?: number;
+  "Brute Force"?: number;
+  DDoS?: number;
+  DoS?: number;
+  "Port Scan"?: number;
+  "Web Attack"?: number;
+  [key: string]: number | undefined;
+}
+
+interface MLPredictionItemFromAPI {
+  index: number;
+  anomaly_detected: boolean;
+  true_label: string;
+  predicted_label: string;
   confidence: number;
-  prediction: string;
-  actualValue?: string;
-  isCorrect?: boolean;
-  timestamp: string;
-  inputFeatures: Record<string, any>;
-  metadata?: Record<string, any>;
+  class_probabilities: ClassProbabilities;
+}
+
+interface MLPredictionPayloadFromAPI {
+  last_modified: string;
+  predictions: MLPredictionItemFromAPI[];
+}
+
+interface AllMLPredictionsFromAPI {
+  [predictionType: string]: MLPredictionPayloadFromAPI | { error: string };
+}
+
+interface MLPredictionsDisplayProps {
+  predictionsData: AllMLPredictionsFromAPI | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Internal component interfaces (can be adjusted)
+interface DisplayablePrediction {
+  id: string; // Combination of type and index
+  modelName: string; // Derived from prediction type
+  predictionType: 'threat' | 'anomaly' | 'classification'; // Simplified for display
+  confidence: number;
+  prediction: string; // From predicted_label
+  timestamp: string; // From last_modified of the prediction file
+  anomalyDetected: boolean;
+  // inputFeatures?: Record<string, any>; // Not directly available in current API data for predictions
+  // actualValue?: string; // Not focusing on this for now
+  // isCorrect?: boolean; // Not focusing on this for now
 }
 
 interface MLModel {
@@ -85,12 +121,16 @@ const statusConfig = {
   error: { color: 'text-red-600', bgColor: 'bg-red-50', label: 'Error' }
 };
 
-export const MLPredictionsDisplay: React.FC = () => {
-  const [selectedModel, setSelectedModel] = useState<string>('all');
-  const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
-  const [activeTab, setActiveTab] = useState<'overview' | 'predictions' | 'performance'>('overview');
+export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
+  predictionsData,
+  isLoading,
+  error
+}) => {
+  const [selectedModelType, setSelectedModelType] = useState<string>('all'); // For filtering predictions by type
+  const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h'); // Kept for UI consistency, though data is static
+  const [activeTab, setActiveTab] = useState<'overview' | 'predictions' | 'performance'>('predictions'); // Default to predictions tab
 
-  // Mock data - in real implementation, this would come from Redux store
+  // Mock data for models - keep for overview tab for now, or remove if focusing only on predictions
   const [models] = useState<MLModel[]>([
     {
       id: 'threat-detector-v2',
@@ -150,56 +190,47 @@ export const MLPredictionsDisplay: React.FC = () => {
     }
   ]);
 
-  const [predictions] = useState<MLPrediction[]>([
-    {
-      id: 'pred-1',
-      modelName: 'Advanced Threat Detector',
-      predictionType: 'threat',
-      confidence: 0.94,
-      prediction: 'Malicious',
-      actualValue: 'Malicious',
-      isCorrect: true,
-      timestamp: '2024-06-19T14:30:00Z',
-      inputFeatures: { 
-        packetSize: 1024, 
-        protocol: 'TCP', 
-        sourceIP: '192.168.1.100',
-        payloadEntropy: 7.2
-      }
-    },
-    {
-      id: 'pred-2',
-      modelName: 'Network Anomaly Detector',
-      predictionType: 'anomaly',
-      confidence: 0.87,
-      prediction: 'Anomalous',
-      actualValue: 'Normal',
-      isCorrect: false,
-      timestamp: '2024-06-19T14:25:00Z',
-      inputFeatures: { 
-        bandwidth: 1500, 
-        connectionCount: 45, 
-        timeOfDay: 14
-      }
-    },
-    {
-      id: 'pred-3',
-      modelName: 'Malware Classifier',
-      predictionType: 'classification',
-      confidence: 0.98,
-      prediction: 'Trojan',
-      actualValue: 'Trojan',
-      isCorrect: true,
-      timestamp: '2024-06-19T14:20:00Z',
-      inputFeatures: { 
-        fileSize: 2048576, 
-        entropy: 6.8, 
-        peImports: 23
-      }
-    }
-  ]);
+  // Transformed predictions from props
+  const displayablePredictions = useMemo((): DisplayablePrediction[] => {
+    if (!predictionsData) return [];
+    
+    const allPreds: DisplayablePrediction[] = [];
+    Object.entries(predictionsData).forEach(([type, payload]) => {
+      if ('predictions' in payload) { // Check if it's not an error object
+        payload.predictions.forEach(p => {
+          let predictionTypeLabel: DisplayablePrediction['predictionType'] = 'classification';
+          if (type.toLowerCase().includes('threat') || p.predicted_label.toLowerCase() !== 'benign') {
+            predictionTypeLabel = 'threat';
+          } else if (p.anomaly_detected) {
+            predictionTypeLabel = 'anomaly';
+          }
 
-  // Generate performance data for charts
+          allPreds.push({
+            id: `${type}-${p.index}`,
+            modelName: type.replace(/_/g, ' ').replace('predictions', '').trim().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '), // e.g. "Bruteforce"
+            predictionType: predictionTypeLabel,
+            confidence: p.confidence,
+            prediction: p.predicted_label,
+            timestamp: payload.last_modified, // Use file's last_modified as prediction timestamp
+            anomalyDetected: p.anomaly_detected,
+          });
+        });
+      }
+    });
+    return allPreds.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [predictionsData]);
+
+  const filteredPredictions = useMemo(() => {
+    if (selectedModelType === 'all') {
+      return displayablePredictions;
+    }
+    return displayablePredictions.filter(p => 
+      p.modelName.toLowerCase().replace(/\s+/g, '_') === selectedModelType // Match modelName to selectedModelType key
+    );
+  }, [displayablePredictions, selectedModelType]);
+
+
+  // Generate performance data for charts (mocked for now)
   const performanceData = useMemo(() => {
     const hours = Array.from({ length: 24 }, (_, i) => {
       const hour = new Date();
@@ -248,6 +279,75 @@ export const MLPredictionsDisplay: React.FC = () => {
     if (confidence >= 0.8) return 'bg-blue-50';
     if (confidence >= 0.7) return 'bg-yellow-50';
     return 'bg-red-50';
+  };
+
+  // PredictionItem component needs to be updated to use DisplayablePrediction type
+  const PredictionItem: React.FC<{ prediction: DisplayablePrediction }> = ({ prediction }) => {
+    // Determine typeConfig based on DisplayablePrediction's predictionType
+    // The original MLPrediction interface had a more detailed 'predictionType'
+    // We'll map based on what we have.
+    let typeKey: keyof typeof modelTypeConfig = 'classification'; // Default
+    if (prediction.predictionType === 'threat') typeKey = 'threat';
+    else if (prediction.predictionType === 'anomaly') typeKey = 'anomaly';
+    
+    const typeConfig = modelTypeConfig[typeKey];
+    const TypeIcon = typeConfig.icon;
+
+
+    return (
+      <div className={cn(
+        "p-4 rounded-lg border transition-all hover:shadow-md",
+        getConfidenceBgColor(prediction.confidence) // Ensure this function exists or is adapted
+      )}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 flex-1">
+            <TypeIcon className={cn("w-5 h-5 mt-0.5", typeConfig.color)} />
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <h4 className="font-medium text-sm">{prediction.modelName}</h4>
+                <Badge variant="outline" className="text-xs">
+                  {typeConfig.label}
+                </Badge>
+                {prediction.anomalyDetected && (
+                  <Badge variant="outline" className="text-xs border-orange-500 text-orange-500">
+                    Anomaly
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="space-y-1 mb-3">
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Prediction:</span>{' '}
+                  <span className="font-medium">{prediction.prediction}</span>
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {/* Using ISO string directly, formatTimestamp can be re-applied if needed */}
+                  {new Date(prediction.timestamp).toLocaleString()} 
+                </span>
+                <span>
+                  Confidence: {(prediction.confidence * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="text-right">
+            <div className={cn(
+              "text-lg font-bold",
+              getConfidenceColor(prediction.confidence) // Ensure this function exists or is adapted
+            )}>
+              {(prediction.confidence * 100).toFixed(1)}%
+            </div>
+            <div className="text-xs text-muted-foreground">Confidence</div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const ModelCard: React.FC<{ model: MLModel }> = ({ model }) => {
@@ -379,6 +479,54 @@ export const MLPredictionsDisplay: React.FC = () => {
     );
   };
 
+  if (isLoading) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Brain className="w-5 h-5 text-purple-600" />
+            ML Model Predictions & Performance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center h-40">
+          <p>Loading predictions...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Brain className="w-5 h-5 text-purple-600" />
+            ML Model Predictions & Performance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center h-40">
+          <p className="text-red-500">Error loading predictions: {error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!predictionsData || displayablePredictions.length === 0) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Brain className="w-5 h-5 text-purple-600" />
+            ML Model Predictions & Performance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center h-40">
+          <p>No ML predictions available at the moment.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -390,7 +538,7 @@ export const MLPredictionsDisplay: React.FC = () => {
           
           <div className="flex items-center gap-2">
             <select
-              value={timeRange}
+              value={timeRange} // This is now less relevant as data is static from files
               onChange={(e) => setTimeRange(e.target.value as any)}
               className="text-sm border rounded px-2 py-1"
             >
@@ -472,22 +620,38 @@ export const MLPredictionsDisplay: React.FC = () => {
           <TabsContent value="predictions" className="space-y-4">
             <div className="flex items-center gap-4 mb-4">
               <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
+                value={selectedModelType}
+                onChange={(e) => setSelectedModelType(e.target.value)}
                 className="text-sm border rounded px-2 py-1"
               >
-                <option value="all">All Models</option>
-                {models.map((model) => (
-                  <option key={model.id} value={model.id}>{model.name}</option>
-                ))}
+                <option value="all">All Prediction Types</option>
+                {/* Populate options from available prediction types in predictionsData */}
+                {predictionsData && Object.keys(predictionsData).map((typeKey) => {
+                  // Check if not an error entry
+                  if ('predictions' in predictionsData[typeKey]) {
+                    const modelDisplayName = typeKey.replace(/_/g, ' ').replace('predictions', '').trim().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                    return (
+                      <option key={typeKey} value={typeKey}>
+                        {modelDisplayName}
+                      </option>
+                    );
+                  }
+                  return null;
+                })}
               </select>
             </div>
 
-            <div className="space-y-3">
-              {predictions.map((prediction) => (
-                <PredictionItem key={prediction.id} prediction={prediction} />
-              ))}
-            </div>
+            {filteredPredictions.length > 0 ? (
+              <div className="space-y-3">
+                {filteredPredictions.map((prediction) => (
+                  <PredictionItem key={prediction.id} prediction={prediction} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                No predictions to display for the selected type.
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="performance" className="space-y-6">
