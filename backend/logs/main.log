@@ -1200,3 +1200,38 @@
 2025-07-01 12:49:49 - main - INFO - SIEM Integration stopped
 2025-07-01 12:49:49 - main - INFO - Performance optimizer stopped
 2025-07-01 12:49:49 - main - INFO - Database optimizer stopped
+2025-07-05 23:31:52 - main - INFO - Database initialized successfully
+2025-07-05 23:31:58 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-05 23:31:58 - main - INFO - Initializing background services...
+2025-07-05 23:31:58 - main - INFO - Enhanced IP Blocker initialized
+2025-07-05 23:32:03 - main - INFO - Advanced Signature Engine initialized
+2025-07-05 23:32:51 - main - INFO - Advanced Phishing Blocker initialized
+2025-07-05 23:32:51 - main - INFO - SIEM Integration initialized successfully
+2025-07-05 23:32:51 - main - INFO - Performance optimizer initialized successfully
+2025-07-05 23:32:54 - main - INFO - Database optimizer initialized successfully
+2025-07-05 23:32:54 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-05 23:32:56 - main - INFO - System monitoring started
+2025-07-05 23:36:11 - main - INFO - User started sniffing on enp0s8
+2025-07-05 23:52:27 - main - INFO - 🛑 Gracefully shutting down...
+2025-07-05 23:52:56 - main - INFO - Enhanced IP Blocker stopped
+2025-07-05 23:52:56 - main - INFO - Advanced Signature Engine stopped
+2025-07-05 23:52:56 - main - INFO - Advanced Phishing Blocker stopped
+2025-07-05 23:52:56 - main - INFO - SIEM Integration stopped
+2025-07-05 23:52:56 - main - INFO - Performance optimizer stopped
+2025-07-05 23:52:56 - main - INFO - Database optimizer stopped
+2025-07-06 00:02:56 - main - INFO - Database initialized successfully
+2025-07-06 00:03:08 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-06 00:03:08 - main - INFO - Initializing background services...
+2025-07-06 00:03:09 - main - INFO - Enhanced IP Blocker initialized
+2025-07-05 23:02:54 - main - INFO - Advanced Signature Engine initialized
+2025-07-06 06:23:03 - main - INFO - Database initialized successfully
+2025-07-06 06:23:07 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-06 06:23:07 - main - INFO - Initializing background services...
+2025-07-06 06:23:07 - main - INFO - Enhanced IP Blocker initialized
+2025-07-06 06:25:13 - main - INFO - Advanced Signature Engine initialized
+2025-07-06 06:25:46 - main - INFO - Advanced Phishing Blocker initialized
+2025-07-06 06:25:46 - main - INFO - SIEM Integration initialized successfully
+2025-07-06 06:25:46 - main - INFO - Performance optimizer initialized successfully
+2025-07-06 06:25:52 - main - INFO - Database optimizer initialized successfully
+2025-07-06 06:25:54 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-06 06:25:56 - main - INFO - System monitoring started

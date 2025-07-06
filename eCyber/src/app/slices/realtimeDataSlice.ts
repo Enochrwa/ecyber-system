@@ -22,6 +22,10 @@ interface DnsActivityState {
   dnsActivities: DnsActivityData[]; // Use updated DnsActivityData
 }
 
+interface  MLNotifications {
+  notifications: []
+}
+
 const initialDnsActivityState: DnsActivityState = {
   dnsActivities: [],
 };
@@ -57,6 +61,20 @@ const firewallEventsSlice = createSlice({
     },
   },
 });
+const initialMLNOtifications = {
+  notifications: []
+}
+
+const mlNotificationsSlice = createSlice({
+  name:"mlNotifications",
+  initialState: initialMLNOtifications,
+  reducers:{
+    addMLNotifications :(state, action:PayloadAction<[]>) =>{
+      state.notifications = [action.payload, ...state.notifications].slice(0, 20)
+    }
+  }
+
+})
 
 export const { addFirewallEvent } = firewallEventsSlice.actions;
 export const firewallEventsReducer = firewallEventsSlice.reducer;
@@ -151,6 +169,8 @@ const systemMetricsSlice = createSlice({
     },
   },
 });
+export const { addMLNotifications } = mlNotificationsSlice.actions
+export const mlNOtificationsReducer = mlNotificationsSlice.reducer
 
 export const { updateSystemStats, updateSystemStatus } = systemMetricsSlice.actions;
 export const systemMetricsReducer = systemMetricsSlice.reducer;

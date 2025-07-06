@@ -86,7 +86,25 @@ from .reporter_helper import _reporter_loop, default_asn, default_geo
 from ...utils.format_http_data import transform_http_activity
 from ...utils.save_to_json import save_feature_vectors_to_json,save_http_data_to_json, save_packet_data_to_json, save_features_to_json
 # from ..ips.engine import IPSEngine
-from .flow_utils import prepare_input_for_prediction, process_flows, SELECTED_FEATURES as EXPECTED_FEATURES
+
+# at top of sniffer.py
+from .inference.test_binary import (
+    brute_force, brute_force_scaler,
+    port_scan,    port_scan_scaler,
+    ddos,         ddos_scaler,
+    dos,          dos_scaler,
+    web_attack,   web_attack_scaler,
+    random_forest, random_forest_scaler,
+)
+from .inference.inference import (
+    models as ae_models,
+    scaler    as ae_scaler,
+    inv_cov   as ae_inv_cov,
+    threshold as ae_threshold,
+)
+
+
+from .inference.ml_utils import prepare_input_for_prediction, process_flows, SELECTED_FEATURES as EXPECTED_FEATURES
 from cicflowmeter.flow_session import FlowSession
 
 # Configure logging
@@ -149,61 +167,33 @@ class PacketSniffer:
         self.anomaly_threshold_value = None
         self.anomaly_features = EXPECTED_FEATURES # Default
 
-        CLASSIFIER_MODELS_PATH = Path("ml/models/eCyber_classifier_models")
-        ANOMALY_MODEL_PATH = Path("ml/models/eCyber_anomaly_isolation")
+        ##Final models
+        self.binary_models = {
+            "Brute_Force": (brute_force, brute_force_scaler),
+            "Port_Scan"  : (port_scan,    port_scan_scaler),
+            "DDoS"       : (ddos,         ddos_scaler),
+            "DoS"        : (dos,          dos_scaler),
+            "Web_Attack" : (web_attack,   web_attack_scaler),
+        }
+        self.multiclass_model = (random_forest, random_forest_scaler)
 
-        with ThreadPoolExecutor(max_workers=min(8,mp.cpu_count())) as executor:
-            # Submit classifier model loading tasks
-            classifier_futures = []
-            if CLASSIFIER_MODELS_PATH.exists() and CLASSIFIER_MODELS_PATH.is_dir():
-                for attack_dir_path in CLASSIFIER_MODELS_PATH.iterdir():
-                    if attack_dir_path.is_dir():
-                        classifier_futures.append(executor.submit(self._load_single_classifier_model, attack_dir_path))
-            else:
-                logger.warning(f"Classifier models path not found or is not a directory: {CLASSIFIER_MODELS_PATH}")
+        # ─── ANOMALY AUTOENCODERS ──────────────────────────────
+        self.ae_models   = ae_models
+        self.ae_scaler   = ae_scaler
+        self.ae_inv_cov  = ae_inv_cov
+        self.ae_threshold= ae_threshold
+        self.label_map = {
+                0: "Benign",
+                1: "Brute_Force",
+                2: "DDoS",
+                3: "DoS",
+                4: "Port_Scan",
+                5: "Web_Attack"
+            }
 
-            # Submit anomaly model loading task
-            anomaly_future = None
-            if ANOMALY_MODEL_PATH.exists() and ANOMALY_MODEL_PATH.is_dir():
-                anomaly_future = executor.submit(self._load_anomaly_model_components, ANOMALY_MODEL_PATH)
-            else:
-                logger.warning(f"Anomaly model path not found or is not a directory: {ANOMALY_MODEL_PATH}")
+                                                                            
 
-            # Collect classifier model results
-            for future in classifier_futures:
-                try:
-                    result = future.result()
-                    if result:
-                        attack_name, model_data = result
-                        if model_data:
-                            self.models[attack_name] = model_data
-                except Exception as e:
-                    logger.error(f"Exception collecting classifier model future: {e}", exc_info=True)
-            
-            # Collect anomaly model results
-            if anomaly_future:
-                try:
-                    anomaly_result = anomaly_future.result()
-                    if anomaly_result:
-                        self.anomaly_model = anomaly_result.get("model")
-                        self.anomaly_scaler = anomaly_result.get("scaler")
-                        self.anomaly_threshold_value = anomaly_result.get("threshold")
-                        self.anomaly_features = anomaly_result.get("features", EXPECTED_FEATURES)
-                except Exception as e:
-                    logger.error(f"Exception collecting anomaly model future: {e}", exc_info=True)
-
-        # self.feature_extractor = AdvancedFeatureExtractor(
-        #     cleanup_interval=300, flow_timeout=120
-        # )
-        # self.comprehensive_feature_extractor = LiveFeatureExtractor()
-        # self.flow_manager = FlowManager(flow_timeout=120)
-
-        # self.packet_processor = EnhancedPacketProcessor()
-        # self.threat_detector = ThreatDetector(self.feature_extractor, self.sio_queue)
-        # If you’ll do ML inference:
-        # self.enhanced_processor = EnhancedPacketProcessor()
-        # self.enhanced_processor.load_model("path/to/your/model.pkl")
-
+        
         # Initialize queues and locks
         self.event_queue = Queue(maxsize=10000)
         self.data_lock = mp.Lock()
@@ -935,147 +925,99 @@ class PacketSniffer:
             logger.error(f"Failed to emit packet summary: {str(e)}")
 
 
-    
-    def predict_with_ml(self,
-                        packet_info: dict,
-                        EXPECTED_FEATURES: List[str],
-                        features: Dict[str,Any],
-                        vector: np.ndarray):
+    def predict_with_ml(self, packet_info, features, vector, EXPECTED_FEATURES):
+        """
+        Run binary, multiclass, and autoencoder models on a single feature vector.
+        - packet_info: metadata about packet
+        - features: dict of raw feature values
+        - vector: numpy array shape (1, N)
+        - EXPECTED_FEATURES: list of column names in order
+        """
         try:
-            if vector.shape[1] != len(EXPECTED_FEATURES):
-                logger.warning(f"Feature vector size mismatch: got {len(vector)}, expected {len(EXPECTED_FEATURES)}")
-                print("vectors\n")
-                print(vector.shape)
-                missing = set(EXPECTED_FEATURES) - set(features.keys())
-                logger.warning(f"Feature vector size mismatch: missing: {missing}")
+            # Prepare DataFrame for transforms
+            df = pd.DataFrame(vector, columns=EXPECTED_FEATURES)
 
-            # Save for offline debugging
-            save_feature_vectors_to_json(vector.tolist())
-            save_features_to_json(features)
+            # 1) Binary classifiers
+            for name, (model, scaler) in self.binary_models.items():
+                Xs = scaler.transform(df)
+                y_pred = model.predict(Xs)[0]
+                if y_pred == 1:
+                    self._emit_ml_alert(
+                        alert_type=name,
+                        packet_info=packet_info,
+                        features=features,
+                        model_kind="binary",
+                    )
 
-            # ─── ML SCORING ───
-            for attack_name, model_data in self.models.items():
-                scaler = model_data["scaler"]
-                model = model_data["model"]
-                thresh = model_data["threshold"]
+            # 2) Multiclass Random Forest
+            rf, rf_scaler = self.multiclass_model
+            Xs_rf = rf_scaler.transform(df)
+            label = rf.predict(Xs_rf)[0]
+            label_str = self.label_map.get(label, str(label))
+            if label != 0:
+                self._emit_ml_alert(
+                    alert_type=label_str,
+                    packet_info=packet_info,
+                    features=features,
+                    model_kind="multiclass",
+                )
 
-                try:
-                    Xs = pd.DataFrame(vector, columns=EXPECTED_FEATURES)
-                    Xs = scaler.transform(Xs)
-                    prob = float(model.predict_proba(Xs)[0][1])
+            # 3) Autoencoder anomaly detection
+            X_ae = self.ae_scaler.transform(df)
+            # Compute reconstruction errors
+            errors = [
+                X_ae - m.predict(X_ae, verbose=0)
+                for m in self.ae_models
+            ]
+            avg_err = np.mean(errors, axis=0)
+            # Mahalanobis distance per sample
+            dist = distance.mahalanobis(
+                avg_err[0], np.zeros_like(avg_err[0]), self.ae_inv_cov
+            )
+            if dist > self.ae_threshold:
+                self._emit_anomaly_alert(
+                    packet_info=packet_info,
+                    features=features,
+                    distance=dist,
+                )
 
-                    if prob >= thresh:
-                        alert_id = f"ml_{attack_name.replace(' ', '_')}_{str(uuid.uuid4())[:8]}"
-                        severity = "High" if prob > 0.9 else "Medium" if prob > 0.75 else "Low"
+        except Exception:
+            logger.exception("Error in ML prediction pipeline")
 
-                        if "DDoS" in attack_name or "Brute_Force" in attack_name:
-                            severity = "Critical" if prob > 0.8 else "High"
+    def _emit_ml_alert(self, alert_type, packet_info, features, model_kind):
+        """
+        Emit an ML-based alert.
+        - alert_type: name of attack or class label
+        - packet_info: raw packet metadata
+        - features: feature dict
+        - model_kind: 'binary' or 'multiclass'
+        """
+        alert = {
+            "source": "ML",
+            "type": alert_type,
+            "kind": model_kind,
+            "packet": packet_info,
+            "features": features,
+        }
+        # Hook into existing alerting pipeline
+        self.sio_queue.put(("ml_alert", alert))
+        logger.info(f"Emitted ML alert: {alert_type} ({model_kind})")
 
-                        description = f"Machine learning model detected {attack_name.replace('_', ' ')} with {prob*100:.2f}% confidence."
-
-                        source_ip_val = features.get('Src IP', packet_info.get('src_ip', 'N/A'))
-                        destination_ip_val = features.get('Dst IP', packet_info.get('dst_ip', 'N/A'))
-                        destination_port_val = int(features.get('Dst Port') or packet_info.get('dst_port') or 0)
-                        protocol_val_numeric = features.get('Protocol', packet_info.get('protocol_num'))
-
-                        protocol_map_for_alert = {6: "TCP", 17: "UDP", 1: "ICMP"}
-                        protocol_str = protocol_map_for_alert.get(protocol_val_numeric, packet_info.get('protocol', str(protocol_val_numeric)))
-
-                        alert = {
-                            "id": alert_id,
-                            "timestamp": datetime.utcnow().isoformat() + "Z",
-                            "severity": severity,
-                            "source_ip": source_ip_val,
-                            "destination_ip": destination_ip_val,
-                            "destination_port": (
-                                int(destination_port_val)
-                                if isinstance(destination_port_val, (str, float)) and str(destination_port_val).isdigit()
-                                else destination_port_val if isinstance(destination_port_val, int)
-                                else 0
-                            ),
-                            "protocol": protocol_str,
-                            "description": description,
-                            "threat_type": attack_name.replace('_', ' '),
-                            "rule_id": f"ml_model_{attack_name.replace(' ', '_')}",
-                            "metadata": {
-                                "probability": round(prob, 4),
-                                "model_name": attack_name,
-                                "features_contributing": {k: v for k, v in features.items() if v != 0}
-                            }
-                        }
-
-                        socket_event_name = f"{attack_name.upper().replace(' ', '_')}_ALERT"
-
-                        try:
-                            self.sio_queue.put_nowait((socket_event_name, alert))
-                            if attack_name == "DoS":
-                                print(f"[DEBUG] DoS Score: {prob:.4f} (Threshold: {thresh})")
-                            logger.warning(f"ML_MODEL DETECTED: {alert}")
-                        except Full:
-                            logger.warning(f"{socket_event_name} queue full, dropping: {alert_id}")
-
-                except Exception as ml_e:
-                    logger.error(f"❌ ML prediction failed for {attack_name}: {ml_e}", exc_info=True)
-
-            # ─── ANOMALY DETECTION ───
-            if self.anomaly_model and self.anomaly_scaler and self.anomaly_threshold_value is not None:
-                try:
-                    anomaly_feature_df = pd.DataFrame(vector, columns=self.anomaly_features)
-                    anomaly_scaled = self.anomaly_scaler.transform(anomaly_feature_df)
-
-                    score = self.anomaly_model.decision_function(anomaly_scaled)[0]
-                    is_anomaly = int(score < self.anomaly_threshold_value)
-
-                    anomaly_result = {
-                        "id": f"anomaly_{str(uuid.uuid4())[:8]}",
-                        "timestamp": datetime.utcnow().isoformat() + "Z",
-                        "source_ip": features.get('Src IP', packet_info.get('src_ip', 'N/A')),
-                        "destination_ip": features.get('Dst IP', packet_info.get('dst_ip', 'N/A')),
-                        "destination_port": features.get('Dst Port', packet_info.get('dst_port', 0)),
-                        "protocol": packet_info.get('protocol', 'N/A'),
-                        "anomaly_score": round(score, 4),
-                        "threshold": self.anomaly_threshold_value,
-                        "is_anomaly": is_anomaly,
-                        "description": f"Anomaly detected with score {score:.4f} (threshold: {self.anomaly_threshold_value}).",
-                        "threat_type": "Anomaly",
-                        "severity": "Medium" if is_anomaly else "Info",
-                        "metadata": {
-                            "model_name": "eCyber_anomaly_isolation",
-                            "features_contributing": {}
-                        }
-                    }
-
-                    # Serialize contributing features
-                    contributing_data = {}
-                    for feature_name in self.anomaly_features:
-                        if feature_name in features:
-                            value = features[feature_name]
-                            try:
-                                json.dumps(value)  # Check serializability
-                                contributing_data[feature_name] = value
-                            except (TypeError, ValueError):
-                                contributing_data[feature_name] = str(value)
-                        else:
-                            contributing_data[feature_name] = None
-                            logger.warning(f"Anomaly model feature '{feature_name}' not found in extracted features.")
-
-                    anomaly_result["metadata"]["features_contributing"] = contributing_data
-
-                    if is_anomaly:
-                        self.sio_queue.put_nowait(("anomaly_alert", anomaly_result))
-                        logger.info(f"Anomaly detected: {anomaly_result['description']} from {anomaly_result['source_ip']}")
-
-                except Exception as anomaly_e:
-                    logger.error(f"Error during anomaly detection: {anomaly_e}", exc_info=True)
-            else:
-                logger.warning("Anomaly model, scaler, or threshold not loaded. Skipping anomaly detection.")
-
-            # ─── FLOW FINALIZATION ───
-            # self.packet_processor.process_packet(packet)
-
-        except Exception as e:
-            logger.debug("Feature extraction or ML scoring failed: %s", e)
-
+    def _emit_anomaly_alert(self, packet_info, features, distance):
+        """
+        Emit an anomaly alert based on autoencoder Mahalanobis distance.
+        - packet_info: raw packet metadata
+        - features: feature dict
+        - distance: computed Mahalanobis distance
+        """
+        alert = {
+            "source": "AE_Anomaly",
+            "distance": distance,
+            "packet": packet_info,
+            "features": features,
+        }
+        self.sio_queue.put(("ml_alert", alert))
+        logger.info(f"Emitted AE anomaly alert: dist={distance:.3f}")
 
 
     def _packet_handler(self, packet: Packet):

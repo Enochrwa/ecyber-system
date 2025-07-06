@@ -13,16 +13,15 @@ router = APIRouter()
 @router.get("/stats", response_model=dict)
 async def get_system_stats(
     sniffer: PacketSniffer = Depends(get_packet_sniffer),
-    current_user: User = Depends(get_current_active_user)
 ):
     """Get current system statistics"""
     return sniffer.get_stats()
 
 
 @router.get("/system_info")
-async def system_status(current_user: User = Depends(get_current_active_user)): # Changed to async, added auth
+async def system_status(): # Changed to async, added auth
     return get_system_info()
 
 @router.get("/interfaces")
-async def get_interfaces(current_user: User = Depends(get_current_active_user)): # Changed to async, added auth
+async def get_interfaces(): # Changed to async, added auth
     return get_network_interfaces()

@@ -315,7 +315,7 @@ const NetworkTrafficVisualizer = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [trafficMetrics, setTrafficMetrics] = useState(generateTrafficMetrics());
   const [activeTab, setActiveTab] = useState('live-traffic');
-  const [isSniffing, setIsSniffing] = useState(initialSniffingState);
+  const [isSniffing, setIsSniffing] = useState(true);
   const [selectedPacket, setSelectedPacket] = useState<PacketData | null>(null);
   const [packetDetails, setPacketDetails] = useState<ThreatDetails | null>(null);
   const [showDetails, setShowDetails] = useState(false);

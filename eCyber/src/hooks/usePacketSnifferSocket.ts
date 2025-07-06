@@ -27,6 +27,7 @@ import {
   addThreatResponse,
   addQuarantinedFile,
   addNetworkVolume,
+  addMLNotifications
 } from '@/app/slices/realtimeDataSlice';
 // Make sure all types used in dispatch are imported if not already defined in this file
 import {
@@ -85,6 +86,11 @@ export interface DnsQueryInfo {
   query_name: string;
   query_type: string | number; // e.g., "A", "AAAA", or number
 }
+
+interface MlAlert {
+  info: any[]
+}
+
 export interface DnsResponseInfo {
   name: string;
   type: string | number;
@@ -394,46 +400,7 @@ export interface UseSocketReturn {
   payload: string | null;
 }
 
-// ==================== Event Type Definitions ====================
-export type SocketEvent =
-  | { type: 'threat_detected'; data: ThreatData }
-  | { type: 'analysis_error'; data: AnalysisError}
-  | { type: 'network_metrics'; data: any }
-  | { type: 'phishing_link_detected'; data: PhishingData }
-  | { type: 'training_progress'; data: TrainingProgress }
-  | { type: 'training_completed'; data: null }
-  | { type: 'network_anomaly'; data: NetworkAnomaly }
-  | { type: 'unauthorized_access'; data: AccessData }
-  | { type: 'firewall_blocked'; data: FirewallData }
-  | { type: 'url_classification_result'; data: UrlClassification }
-  | { type: 'service_status'; data: ServiceStatus }
-  | { type: 'user_alert'; data: Alert }
-  | { type: 'security_alert'; data: Alert }
-  | { type: 'http_activity'; data: HttpActivity[] } // Assuming array based on existing handler
-  | { type: 'behavior_analysis'; data: BehaviorAnalysisData[] }
-  | { type: 'payload_analysis'; data: PayloadAnalysisData[] }
-  | { type: 'tcp_activity'; data: TcpActivityData[] }
-  | { type: 'udp_activity'; data: UdpActivityData[] }
-  | { type: 'arp_activity'; data: ArpActivityData[] }
-  | { type: 'icmp_activity'; data: IcmpActivityData[] }
-  | { type: 'dns_activity'; data: DnsQuery }
-  | { type: 'database_error'; data: ErrorData }
-  | { type: 'ssh_connection'; data: SshConnection }
-  | { type: 'firewall_event'; data: FirewallEvent }
-  | { type: 'detection_error'; data: ErrorData }
-  | { type: 'rules_updated'; data: { count: number } }
-  | { type: 'get_rules'; data: Rule[] }
-  | { type: 'system_stats'; data: SystemStats }
-  | { type: 'system_error'; data: ErrorData }
-  | { type: 'system_status'; data: SystemStatus }
-  | { type: 'ipv6_activity'; data: IPv6Activity }
-  | { type: 'critical_alert'; data: CriticalAlert }
-  | { type: 'threat_response'; data: ThreatResponse }
-  | { type: 'process_inspection'; data: ProcessInspection }
-  | { type: 'connection_analysis'; data: ConnectionAnalysis }
-  | { type: 'file_quarantined'; data: FileQuarantined }
-  | { type: 'system_snapshot'; data: SystemSnapshot }
-  | { type: 'packet_data'; data: PacketMetadata };
+
 
 // ==================== Hook Return Type ====================
 export interface UseSocketReturn {
@@ -495,6 +462,10 @@ export default function usePacketSniffer(): UseSocketReturn {
     'security_alert': (data: Alert) => {
         // console.info('🛡️ Security Alert:', data);
         dispatch(addSecurityAlert(data as Alert));
+    },
+    "ml_alert": (data) =>{
+      dispatch(addMLNotifications(data))
+      console.log("ML alert: ", data);
     },
     'user_alert': (data: Alert) => { // Assuming UserAlert is compatible with Alert
         // console.info('👤 User Alert:', data);
