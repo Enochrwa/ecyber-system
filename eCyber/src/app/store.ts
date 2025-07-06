@@ -13,7 +13,8 @@ import {
   threatResponsesReducer,
   quarantinedFilesReducer,
   networkVolumeReducer,
-  networkInterfaceReducer
+  networkInterfaceReducer,
+  mlNOtificationsReducer
 } from './slices/realtimeDataSlice';
 
 import 
@@ -36,6 +37,7 @@ export const store = configureStore({
     phishingDetections: phishingDetectionsReducer,
     threatResponses: threatResponsesReducer,
     quarantinedFiles: quarantinedFilesReducer,
+    mlNotifications: mlNOtificationsReducer
   },
 })
 

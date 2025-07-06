@@ -33,7 +33,7 @@ web_attack_scaler = joblib.load("trained_models/train/models/Web_Attack/scaler.p
 
 
 random_forest = joblib.load("trained_models/multiclass/results/best_model_random_forest.pkl")
-random_forest_scaler = joblib.load("trained_models/multiclass/results/scaler.pkl")
+random_forest_scaler = joblcib.load("trained_models/multiclass/results/scaler.pkl")
 
 # ─── Example Usage ──────────────────────────────────────────
 # if __name__ == "__main__":
