@@ -147,11 +147,8 @@ const Sidebar = () => {
         async () => {
           try {
             const token = localStorage.getItem('authToken');
-            const info = axios.get('http://127.0.0.1:8000/api/system/system_info', {
-              headers: {
-                Authorization: `Bearer ${token}`
-                  }
-            });
+            const info = axios.get('http://127.0.0.1:8000/api/system/system_info');
+            console.log("System info: ", info)
             // const info = await axios.get("https://ecyber-backend.onrender.com/api/system/system_info");
             if (info?.data) {
               setSystemInfo(info?.data);
@@ -361,9 +358,9 @@ const Sidebar = () => {
                     </div>
                   </>
                 )}
-                {!systemInfo && (
+                {/* {!systemInfo && (
                   <p className="text-xs text-muted-foreground">Loading system info...</p>
-                )}
+                )} */}
               </div>
             </div>
         </SidebarContent>

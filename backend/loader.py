@@ -4,7 +4,6 @@ import os
 import sys
 import asyncio
 from dotenv import load_dotenv
-from uvicorn import Config, Server
 
 # Handle PyInstaller frozen executable paths
 if getattr(sys, 'frozen', False):
@@ -18,33 +17,29 @@ load_dotenv(dotenv_path)
 
 # Import after dotenv (to ensure env vars are available)
 from main import create_app, emit_progress, mark_server_ready  # adjust if needed
+import uvicorn
 
-async def run():
-    app = await create_app()
+# Global app instance
+app_instance = None
 
-    config = Config(
-        app=app,
-        host="127.0.0.1",
-        port=8000,
-        reload=False,
-        workers=1,
-        loop="asyncio",  # use "asyncio" to avoid uvloop dependency
-        http="httptools",  # fast HTTP parser, safe to use
-        log_level="info",
-    )
-
-    server = Server(config)
-
-    # Run tasks concurrently
-    server_task = asyncio.create_task(server.serve())
-    asyncio.create_task(emit_progress())  # Optional async background task
-    await mark_server_ready()            # Optional readiness marker
-    await server_task
+async def get_app():
+    global app_instance
+    if app_instance is None:
+        app_instance = await create_app()
+    return app_instance
 
 if __name__ == "__main__":
     import multiprocessing
-    multiprocessing.freeze_support() 
-    try:
-        asyncio.run(run())
-    except KeyboardInterrupt:
-        print("\nServer stopped by user.")
+    multiprocessing.freeze_support()
+
+    # Use uvicorn factory mode to handle async app creation
+    uvicorn.run(
+        "loader:get_app",           # module:function
+        factory=True,               # tells Uvicorn to await get_app()
+        host="0.0.0.0",
+        port=8000,
+        reload=False,
+        loop="asyncio",
+        http="httptools",
+        log_level="info"
+    )

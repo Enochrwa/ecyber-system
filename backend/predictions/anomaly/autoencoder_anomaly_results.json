@@ -1,0 +1,20 @@
+[
+  {
+    "flow_index": 0,
+    "mahalanobis_distance": 771.777695595168,
+    "threshold": 11.652478499958006,
+    "anomaly_detected": true
+  },
+  {
+    "flow_index": 1,
+    "mahalanobis_distance": 51.00212174353136,
+    "threshold": 11.652478499958006,
+    "anomaly_detected": true
+  },
+  {
+    "flow_index": 2,
+    "mahalanobis_distance": 771.7780390947316,
+    "threshold": 11.652478499958006,
+    "anomaly_detected": true
+  }
+]

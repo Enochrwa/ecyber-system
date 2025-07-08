@@ -1296,3 +1296,31 @@
 2025-07-06 22:04:08 - main - WARNING - Continuing without performance optimization
 2025-07-06 22:11:13 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
 2025-07-06 22:29:23 - main - INFO - System monitoring started
+2025-07-07 03:09:33 - main - INFO - Database initialized successfully
+2025-07-07 03:09:43 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-07 03:09:43 - main - INFO - Initializing background services...
+2025-07-07 03:09:44 - main - INFO - Enhanced IP Blocker initialized
+2025-07-07 03:09:47 - main - INFO - Advanced Signature Engine initialized
+2025-07-07 03:11:00 - main - INFO - Advanced Phishing Blocker initialized
+2025-07-07 03:11:03 - main - INFO - SIEM Integration initialized successfully
+2025-07-07 03:11:03 - main - INFO - Performance optimizer initialized successfully
+2025-07-07 03:12:03 - main - WARNING - Performance optimization failed to start: Error 22 connecting to localhost:6379. The remote computer refused the network connection.
+2025-07-07 03:12:03 - main - WARNING - Continuing without performance optimization
+2025-07-07 03:26:57 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-07 13:01:03 - main - INFO - Database initialized successfully
+2025-07-07 13:01:04 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-07 13:01:04 - main - INFO - Initializing background services...
+2025-07-07 13:01:26 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-07 14:06:25 - main - INFO - 🛑 Gracefully shutting down...
+2025-07-07 14:17:43 - main - INFO - Database initialized successfully
+2025-07-07 14:17:44 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-07 14:17:44 - main - INFO - Initializing background services...
+2025-07-07 14:17:58 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-07 14:29:07 - main - INFO - 🛑 Gracefully shutting down...
+2025-07-07 14:34:33 - main - INFO - Database initialized successfully
+2025-07-07 14:34:39 - main - INFO - 🚀 Starting eCyber Security System
+2025-07-07 14:34:39 - main - INFO - Initializing background services...
+2025-07-07 14:36:12 - main - INFO - Registered /malware_events namespace for EMPDRS communication.
+2025-07-07 15:43:20 - main - INFO - 🛑 Gracefully shutting down...
+2025-07-08 17:32:59 - main - INFO - Database initialized successfully
+2025-07-08 17:34:08 - main - INFO - Database initialized successfully

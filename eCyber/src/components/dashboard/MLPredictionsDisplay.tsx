@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { useSelector, useDispatch } from 'react-redux';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Brain, 
@@ -18,11 +19,12 @@ import {
   Eye,
   RefreshCw
 } from 'lucide-react';
+import { RootState } from '@/app/store';
 // import { useSelector } from 'react-redux'; // Not used directly with new props
 // import { RootState } from '@/app/store'; // Not used directly with new props
 import { cn } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-
+import { addThreats } from '@/app/slices/displaySlice';
 // Interfaces from Dashboard.tsx for the props
 interface ClassProbabilities {
   BENIGN?: number;
@@ -129,7 +131,9 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
   const [selectedModelType, setSelectedModelType] = useState<string>('all'); // For filtering predictions by type
   const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h'); // Kept for UI consistency, though data is static
   const [activeTab, setActiveTab] = useState<'overview' | 'predictions' | 'performance'>('predictions'); // Default to predictions tab
+  const dispatch = useDispatch();
 
+  console.log("Type of predictionsData: ", typeof predictionsData)
   // Mock data for models - keep for overview tab for now, or remove if focusing only on predictions
   const [models] = useState<MLModel[]>([
     {
@@ -190,35 +194,46 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
     }
   ]);
 
-  // Transformed predictions from props
-  const displayablePredictions = useMemo((): DisplayablePrediction[] => {
-    if (!predictionsData) return [];
-    
-    const allPreds: DisplayablePrediction[] = [];
-    Object.entries(predictionsData).forEach(([type, payload]) => {
-      if ('predictions' in payload) { // Check if it's not an error object
-        payload.predictions.forEach(p => {
-          let predictionTypeLabel: DisplayablePrediction['predictionType'] = 'classification';
-          if (type.toLowerCase().includes('threat') || p.predicted_label.toLowerCase() !== 'benign') {
-            predictionTypeLabel = 'threat';
-          } else if (p.anomaly_detected) {
-            predictionTypeLabel = 'anomaly';
-          }
+    const displayablePredictions = useMemo((): DisplayablePrediction[] => {
+      if (!predictionsData || !Array.isArray(predictionsData?.prediction)) return [];
 
-          allPreds.push({
-            id: `${type}-${p.index}`,
-            modelName: type.replace(/_/g, ' ').replace('predictions', '').trim().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '), // e.g. "Bruteforce"
-            predictionType: predictionTypeLabel,
-            confidence: p.confidence,
-            prediction: p.predicted_label,
-            timestamp: payload.last_modified, // Use file's last_modified as prediction timestamp
-            anomalyDetected: p.anomaly_detected,
+      const allPreds: DisplayablePrediction[] = [];
+
+      predictionsData.prediction.forEach((payload) => {
+        const type = payload.type || 'Unknown';
+        if (Array.isArray(payload.predictions)) {
+          payload.predictions.forEach((p: any) => {
+            let predictionTypeLabel: DisplayablePrediction['predictionType'] = 'classification';
+            if (type.toLowerCase().includes('threat') || p.predicted_label?.toLowerCase() !== 'benign') {
+              predictionTypeLabel = 'threat';
+            } else if (p.anomaly_detected) {
+              predictionTypeLabel = 'anomaly';
+            }
+
+            allPreds.push({
+              id: `${type}-${p.index}`,
+              modelName: type.replace(/_/g, ' ')
+                            .replace('predictions', '')
+                            .trim()
+                            .split(' ')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' '),
+              predictionType: predictionTypeLabel,
+              confidence: p.confidence,
+              prediction: p.predicted_label,
+              timestamp: payload.last_modified,
+              anomalyDetected: p.anomaly_detected,
+            });
           });
-        });
-      }
-    });
-    return allPreds.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [predictionsData]);
+        }
+      });
+
+      dispatch(addThreats(allPreds.length));
+      return allPreds.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    }, [predictionsData]);
+
+
 
   const filteredPredictions = useMemo(() => {
     if (selectedModelType === 'all') {
@@ -415,70 +430,132 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
   };
 
   const PredictionItem: React.FC<{ prediction: MLPrediction }> = ({ prediction }) => {
-    const typeConfig = modelTypeConfig[prediction.predictionType];
-    const TypeIcon = typeConfig.icon;
+  const typeConfig = modelTypeConfig[prediction.predictionType];
+  const TypeIcon = typeConfig.icon;
 
-    return (
-      <div className={cn(
-        "p-4 rounded-lg border transition-all hover:shadow-md",
-        getConfidenceBgColor(prediction.confidence)
-      )}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 flex-1">
-            <TypeIcon className={cn("w-5 h-5 mt-0.5", typeConfig.color)} />
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <h4 className="font-medium text-sm">{prediction.modelName}</h4>
-                <Badge variant="outline" className="text-xs">
-                  {typeConfig.label}
-                </Badge>
-                {prediction.isCorrect !== undefined && (
-                  prediction.isCorrect ? 
-                    <CheckCircle className="w-4 h-4 text-green-600" /> :
-                    <XCircle className="w-4 h-4 text-red-600" />
-                )}
-              </div>
-              
-              <div className="space-y-1 mb-3">
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Prediction:</span>{' '}
-                  <span className="font-medium">{prediction.prediction}</span>
-                </p>
-                {prediction.actualValue && (
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Actual:</span>{' '}
-                    <span className="font-medium">{prediction.actualValue}</span>
-                  </p>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {formatTimestamp(prediction.timestamp)}
-                </span>
-                <span>
-                  Confidence: {(prediction.confidence * 100).toFixed(1)}%
-                </span>
-              </div>
-            </div>
+  return (
+    <div className={cn(
+      "p-4 rounded-lg border border-slate-700/50 bg-slate-900/50 backdrop-blur-sm",
+      "transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10",
+      "hover:border-cyan-500/30 hover:bg-slate-800/60",
+      "relative overflow-hidden group"
+    )}>
+      {/* Cyber glow effect */}
+      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      
+      <div className="flex items-start justify-between gap-3 relative z-10">
+        <div className="flex items-start gap-3 flex-1">
+          <div className="relative">
+            <TypeIcon className={cn(
+              "w-5 h-5 mt-0.5 transition-all duration-300",
+              "text-cyan-400 group-hover:text-cyan-300",
+              "drop-shadow-[0_0_4px_rgba(34,211,238,0.4)]"
+            )} />
+            {/* Pulsing dot indicator */}
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
           </div>
           
-          <div className="text-right">
-            <div className={cn(
-              "text-lg font-bold",
-              getConfidenceColor(prediction.confidence)
-            )}>
-              {(prediction.confidence * 100).toFixed(1)}%
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <h4 className="font-medium text-sm text-slate-200 group-hover:text-white transition-colors">
+                {prediction.modelName}
+              </h4>
+              <Badge variant="outline" className={cn(
+                "text-xs border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
+                "hover:bg-cyan-500/20 transition-colors"
+              )}>
+                {typeConfig.label}
+              </Badge>
+              {prediction.isCorrect !== undefined && (
+                prediction.isCorrect ? 
+                  <CheckCircle className="w-4 h-4 text-green-400 drop-shadow-[0_0_4px_rgba(34,197,94,0.4)]" /> :
+                  <XCircle className="w-4 h-4 text-red-400 drop-shadow-[0_0_4px_rgba(239,68,68,0.4)]" />
+              )}
             </div>
-            <div className="text-xs text-muted-foreground">Confidence</div>
+            
+            <div className="space-y-1 mb-3">
+              <p className="text-sm">
+                <span className="text-slate-400 font-mono">PREDICTION:</span>{' '}
+                <span className="font-medium text-slate-200 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
+                  {prediction.prediction}
+                </span>
+              </p>
+              {prediction.actualValue && (
+                <p className="text-sm">
+                  <span className="text-slate-400 font-mono">ACTUAL:</span>{' '}
+                  <span className="font-medium text-slate-200 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
+                    {prediction.actualValue}
+                  </span>
+                </p>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs text-slate-400 font-mono">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-cyan-400" />
+                {formatTimestamp(prediction.timestamp)}
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-1 h-1 bg-cyan-400 rounded-full animate-pulse" />
+                CONFIDENCE: {(prediction.confidence * 100).toFixed(1)}%
+              </span>
+            </div>
+            
+            {/* Network traffic info */}
+            <div className="flex items-center gap-4 text-xs text-slate-400 font-mono mt-2 pt-2 border-t border-slate-700/30">
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+                SRC: <span className="text-orange-300">{ prediction?.alert?.source_ip}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                DST: <span className="text-blue-300">{predictionsData?.destination_ip}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="text-right">
+          <div className={cn(
+            "text-lg font-bold font-mono tracking-wider",
+            "text-transparent bg-clip-text bg-gradient-to-r",
+            prediction.confidence >= 0.8 ? "from-green-400 to-cyan-400" :
+            prediction.confidence >= 0.6 ? "from-yellow-400 to-orange-400" :
+            "from-red-400 to-pink-400",
+            "drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]"
+          )}>
+            {(prediction.confidence * 100).toFixed(1)}%
+          </div>
+          <div className="text-xs text-slate-500 font-mono tracking-wide">
+            CONFIDENCE
+          </div>
+          
+          {/* Confidence level indicator bars */}
+          <div className="flex gap-0.5 mt-2 justify-end">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "w-1 h-3 rounded-full transition-all duration-300",
+                  i < Math.floor(prediction.confidence * 5) 
+                    ? "bg-cyan-400 shadow-[0_0_4px_rgba(34,211,238,0.6)]" 
+                    : "bg-slate-700"
+                )}
+              />
+            ))}
           </div>
         </div>
       </div>
-    );
-  };
-
+      
+      {/* Bottom border accent */}
+      <div className={cn(
+        "absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r",
+        "from-transparent via-cyan-500/50 to-transparent",
+        "opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+      )} />
+    </div>
+  );
+};
   if (isLoading) {
     return (
       <Card className="w-full">
@@ -495,21 +572,21 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
     );
   }
 
-  if (error) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Brain className="w-5 h-5 text-purple-600" />
-            ML Model Predictions & Performance
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex justify-center items-center h-40">
-          <p className="text-red-500">Error loading predictions: {error}</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  // if (error) {
+  //   return (
+  //     <Card className="w-full">
+  //       <CardHeader>
+  //         <CardTitle className="text-lg flex items-center gap-2">
+  //           <Brain className="w-5 h-5 text-purple-600" />
+  //           ML Model Predictions & Performance
+  //         </CardTitle>
+  //       </CardHeader>
+  //       <CardContent className="flex justify-center items-center h-40">
+  //         <p className="text-red-500">Error loading predictions: {error}</p>
+  //       </CardContent>
+  //     </Card>
+  //   );
+  // }
 
   if (!predictionsData || displayablePredictions.length === 0) {
     return (
@@ -626,9 +703,9 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
               >
                 <option value="all">All Prediction Types</option>
                 {/* Populate options from available prediction types in predictionsData */}
-                {predictionsData && Object.keys(predictionsData).map((typeKey) => {
+                {predictionsData && Object.keys(predictionsData?.prediction).map((typeKey) => {
                   // Check if not an error entry
-                  if ('predictions' in predictionsData[typeKey]) {
+                  if ('predictions' in predictionsData?.prediction[typeKey]) {
                     const modelDisplayName = typeKey.replace(/_/g, ' ').replace('predictions', '').trim().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
                     return (
                       <option key={typeKey} value={typeKey}>

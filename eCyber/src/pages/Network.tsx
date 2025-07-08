@@ -91,7 +91,7 @@ const Network = () => {
             </Card>
             
             {/* Network devices */}
-            <Card className="col-span-2">
+            {/* <Card className="col-span-2">
               <CardHeader>
                 <CardTitle className="text-base flex items-center justify-between">
                   <span>Network Devices</span>
@@ -126,11 +126,11 @@ const Network = () => {
                   View All Devices <ArrowRight className="ml-1" size={12} />
                 </Button>
               </CardFooter>
-            </Card>
+            </Card> */}
           </div>
           
           {/* Recent connections */}
-          <Card>
+          {/* <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center">
                 <WifiOff className="mr-2" size={16} />
@@ -173,7 +173,7 @@ const Network = () => {
                 View All Connections <ArrowRight className="ml-1" size={12} />
               </Button>
             </CardFooter>
-          </Card>
+          </Card> */}
         </div>
       </main>
     </div>

@@ -235,7 +235,6 @@ async def list_models():
     return model_infos
 
 
-
 PREDICTIONS_PATH = (
     pathlib.Path(__file__).resolve().parent.parent.parent
     / "trained_ml"
@@ -243,24 +242,19 @@ PREDICTIONS_PATH = (
     / "predictions"
 )
 
-
-
 @router.get("/predictions", summary="Get ML model predictions", description="Retrieves stored ML model predictions. Can be filtered by prediction type.")
 async def get_ml_predictions(type: str | None = None):
-    predictions_data = {}
-    
     if not PREDICTIONS_PATH.exists() or not PREDICTIONS_PATH.is_dir():
         raise HTTPException(status_code=404, detail="Predictions directory not found.")
 
     if type:
         # Sanitize type to prevent directory traversal
         safe_type_name = "".join(c for c in type if c.isalnum() or c in ['_', '-']).lower()
-        prediction_file_name = f"random_forest_{safe_type_name}_predictions.json"
-        prediction_file_path = PREDICTIONS_PATH / prediction_file_name
+        prediction_file_path = PREDICTIONS_PATH / f"{safe_type_name}.json"
         
         if not prediction_file_path.exists() or not prediction_file_path.is_file():
             raise HTTPException(status_code=404, detail=f"Predictions for type '{type}' not found.")
-        
+
         try:
             with open(prediction_file_path, 'r') as f:
                 data = json.load(f)
@@ -271,27 +265,17 @@ async def get_ml_predictions(type: str | None = None):
                 "predictions": data
             }
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error reading prediction file for type '{type}': {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error reading prediction file: {str(e)}")
+    
     else:
-        # Load all JSON files in the predictions directory
+        # Load all .json prediction files
         all_predictions = {}
         has_files = False
+
         for prediction_file_path in PREDICTIONS_PATH.glob("*.json"):
             if prediction_file_path.is_file():
                 has_files = True
-                file_name_parts = prediction_file_path.name.split('_')
-                # Expecting format like "random_forest_bruteforce_predictions.json"
-                # or "xgboost_dos_predictions.json"
-                if len(file_name_parts) > 2 and file_name_parts[-1] == "predictions.json":
-                    # Try to extract type, e.g., "bruteforce"
-                    prediction_type = "_".join(file_name_parts[2:-1]) if len(file_name_parts) > 3 else file_name_parts[1]
-                    # Fallback if parsing is tricky
-                    if not prediction_type or prediction_type == "predictions.json": 
-                        prediction_type = prediction_file_path.stem # filename without extension as a fallback key
-                else:
-                    # Fallback for unexpected names
-                    prediction_type = prediction_file_path.stem
-
+                prediction_type = prediction_file_path.stem  # e.g., 'bruteforce' from 'bruteforce.json'
                 try:
                     with open(prediction_file_path, 'r') as f:
                         data = json.load(f)
@@ -301,14 +285,11 @@ async def get_ml_predictions(type: str | None = None):
                         "predictions": data
                     }
                 except Exception as e:
-                    # Log error or skip file
-                    print(f"Error reading {prediction_file_path.name}: {e}") 
                     all_predictions[prediction_type] = {
                         "error": f"Could not load predictions: {str(e)}"
                     }
-        
+
         if not has_files:
             raise HTTPException(status_code=404, detail="No prediction files found in the directory.")
-            
-        return all_predictions
 
+        return all_predictions

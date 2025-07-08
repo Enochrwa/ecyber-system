@@ -229,13 +229,12 @@ def prepare_input_for_prediction(df_final: pd.DataFrame) -> np.ndarray:
     return df_ordered.values
 
 
-
-def sniff_and_stream(interface: str, queue:Queue, window: int = 30, label: str = "unknown"):
+def sniff_and_stream(interface: str, queue: Queue, window: int = 30, label: str = "unknown"):
     """
     Continuously sniff live traffic, flush every `window` seconds,
-    process flows and send ready feature vectors to ML.
+    process flows and send ready DataFrames to ML queue.
     """
-    session = FlowSession(output_mode="csv", output=f"{label}_features.csv", verbose=False)
+    session = FlowSession(output_mode="csv", output=None, verbose=False)
 
     def packet_handler(pkt):
         session.process(pkt)
@@ -243,12 +242,10 @@ def sniff_and_stream(interface: str, queue:Queue, window: int = 30, label: str =
     def flush_loop():
         while True:
             time.sleep(window)
-            raw = session.flush_flows(return_dataframe=False)
+            raw = session.flush_flows(return_dataframe=True)
             df_clean = process_flows(raw)
             if not df_clean.empty:
-                vectors = prepare_input_for_prediction(df_clean)
-                if vectors.size:
-                    queue.put(vectors)
+                queue.put(df_clean)  # Send full processed DataFrame instead of vectors
 
     # Start sniffing thread
     sniff_thread = threading.Thread(
@@ -257,24 +254,21 @@ def sniff_and_stream(interface: str, queue:Queue, window: int = 30, label: str =
     )
     sniff_thread.start()
 
-    # Start flush/send loop
+    # Start the flush loop (runs on main sniff thread)
     flush_loop()
 
 
-def start_sniffing(interface='enp0s8', window=30, label: str = "unknown"):
+def start_sniffing(interface='enp0s8', window=30, label: str = "unknown") -> Queue:
     """
-    Starts sniffing in a background thread and returns the feature queue.
+    Starts sniffing in a background thread and returns the DataFrame queue.
     """
     q = Queue()
 
-    # Run in thread so caller can consume queue in parallel
     sniff_thread = threading.Thread(
         target=sniff_and_stream,
-        args=(interface, q,window, label),
+        args=(interface, q, window, label),
         daemon=True
     )
     sniff_thread.start()
 
     return q
-
-

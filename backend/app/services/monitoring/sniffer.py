@@ -89,20 +89,20 @@ from ...utils.save_to_json import save_feature_vectors_to_json,save_http_data_to
 # from ..ips.engine import IPSEngine
 
 # at top of sniffer.py
-from .inference.test_binary import (
-    brute_force, brute_force_scaler,
-    port_scan,    port_scan_scaler,
-    ddos,         ddos_scaler,
-    dos,          dos_scaler,
-    web_attack,   web_attack_scaler,
-    random_forest, random_forest_scaler,
-)
-from .inference.inference import (
-    models as ae_models,
-    scaler    as ae_scaler,
-    inv_cov   as ae_inv_cov,
-    threshold as ae_threshold,
-)
+# from .inference.test_binary import (
+#     brute_force, brute_force_scaler,
+#     port_scan,    port_scan_scaler,
+#     ddos,         ddos_scaler,
+#     dos,          dos_scaler,
+#     web_attack,   web_attack_scaler,
+#     random_forest, random_forest_scaler,
+# )
+# from .inference.inference import (
+#     models as ae_models,
+#     scaler    as ae_scaler,
+#     inv_cov   as ae_inv_cov,
+#     threshold as ae_threshold,
+# )
 
 
 from .inference.ml_utils import prepare_input_for_prediction, process_flows, SELECTED_FEATURES as EXPECTED_FEATURES
@@ -169,28 +169,28 @@ class PacketSniffer:
         self.anomaly_features = EXPECTED_FEATURES # Default
 
         ##Final models
-        self.binary_models = {
-            "Brute_Force": (brute_force, brute_force_scaler),
-            "Port_Scan"  : (port_scan,    port_scan_scaler),
-            "DDoS"       : (ddos,         ddos_scaler),
-            "DoS"        : (dos,          dos_scaler),
-            "Web_Attack" : (web_attack,   web_attack_scaler),
-        }
-        self.multiclass_model = (random_forest, random_forest_scaler)
+        # self.binary_models = {
+        #     "Brute_Force": (brute_force, brute_force_scaler),
+        #     "Port_Scan"  : (port_scan,    port_scan_scaler),
+        #     "DDoS"       : (ddos,         ddos_scaler),
+        #     "DoS"        : (dos,          dos_scaler),
+        #     "Web_Attack" : (web_attack,   web_attack_scaler),
+        # }
+        # self.multiclass_model = (random_forest, random_forest_scaler)
 
-        # ─── ANOMALY AUTOENCODERS ──────────────────────────────
-        self.ae_models   = ae_models
-        self.ae_scaler   = ae_scaler
-        self.ae_inv_cov  = ae_inv_cov
-        self.ae_threshold= ae_threshold
-        self.label_map = {
-                0: "Benign",
-                1: "Brute_Force",
-                2: "DDoS",
-                3: "DoS",
-                4: "Port_Scan",
-                5: "Web_Attack"
-            }
+        # # ─── ANOMALY AUTOENCODERS ──────────────────────────────
+        # self.ae_models   = ae_models
+        # self.ae_scaler   = ae_scaler
+        # self.ae_inv_cov  = ae_inv_cov
+        # self.ae_threshold= ae_threshold
+        # self.label_map = {
+        #         0: "Benign",
+        #         1: "Brute_Force",
+        #         2: "DDoS",
+        #         3: "DoS",
+        #         4: "Port_Scan",
+        #         5: "Web_Attack"
+        #     }
 
                                                                             
 
@@ -292,63 +292,63 @@ class PacketSniffer:
             # 2. Prepare an internal ML work queue
 
             # 3. Launch the flow-flush thread
-            def _flow_flush_loop():
-                while not self.stop_sniffing_event.is_set():
-                    time.sleep(self._flow_flush_interval)
-                    try:
-                        raw = self._flow_session.flush_flows(return_dataframe=True)
-                        df_clean = process_flows(raw)
-                        if not df_clean.empty:
-                            # Build one batch:
-                            feats_and_vecs = []
-                            for _, row in df_clean.iterrows():
-                                feats = row.to_dict()
-                                vecs = prepare_input_for_prediction(pd.DataFrame([row]))
-                                feats_and_vecs.append((feats, vecs))
-                            # Enqueue the *whole* batch:
-                            self._ml_queue.put(feats_and_vecs)
-                    except Exception:
-                        logger.exception("Error flushing flows")
+        #     def _flow_flush_loop():
+        #         while not self.stop_sniffing_event.is_set():
+        #             time.sleep(self._flow_flush_interval)
+        #             try:
+        #                 raw = self._flow_session.flush_flows(return_dataframe=True)
+        #                 df_clean = process_flows(raw)
+        #                 if not df_clean.empty:
+        #                     # Build one batch:
+        #                     feats_and_vecs = []
+        #                     for _, row in df_clean.iterrows():
+        #                         feats = row.to_dict()
+        #                         vecs = prepare_input_for_prediction(pd.DataFrame([row]))
+        #                         feats_and_vecs.append((feats, vecs))
+        #                     # Enqueue the *whole* batch:
+        #                     self._ml_queue.put(feats_and_vecs)
+        #             except Exception:
+        #                 logger.exception("Error flushing flows")
 
-            self._flow_flush_thread = threading.Thread(
-            target=_flow_flush_loop,
-            daemon=False,               # make it non-daemon so we can join it
-            name="FlowFlushThread"
-            )
-            self._flow_flush_thread.start()
+        #     self._flow_flush_thread = threading.Thread(
+        #     target=_flow_flush_loop,
+        #     daemon=False,               # make it non-daemon so we can join it
+        #     name="FlowFlushThread"
+        #     )
+        #     self._flow_flush_thread.start()
 
-            # 4. Launch the ML-prediction consumer thread
-            def _ml_consumer_loop():
+        #     # 4. Launch the ML-prediction consumer thread
+        #     def _ml_consumer_loop():
                 
-                while not self.stop_sniffing_event.is_set():
-                    try:
-                        batch = self._ml_queue.get()
-                        for features, vector in batch:
-                            if vector.size == 0:
-                                continue
-                            # Ensure correct shape
-                            vector = vector.reshape(1, -1)
-                            # Build packet_info if needed (could include timestamps, IPs, etc.)
-                            packet_info = self.packet_info_queue.get()
-                            # Call the prediction method
-                            self.predict_with_ml(
-                                packet_info=packet_info,
-                                EXPECTED_FEATURES=self.anomaly_features,
-                                features=features,
-                                vector=vector
-                            )
+        #         while not self.stop_sniffing_event.is_set():
+        #             try:
+        #                 batch = self._ml_queue.get()
+        #                 for features, vector in batch:
+        #                     if vector.size == 0:
+        #                         continue
+        #                     # Ensure correct shape
+        #                     vector = vector.reshape(1, -1)
+        #                     # Build packet_info if needed (could include timestamps, IPs, etc.)
+        #                     packet_info = self.packet_info_queue.get()
+        #                     # Call the prediction method
+        #                     self.predict_with_ml(
+        #                         packet_info=packet_info,
+        #                         EXPECTED_FEATURES=self.anomaly_features,
+        #                         features=features,
+        #                         vector=vector
+        #                     )
                         
-                    except queue.Empty:
-                        continue
-                    except Exception:
-                        logger.exception("Error in ML consumer loop")
+        #             except queue.Empty:
+        #                 continue
+        #             except Exception:
+        #                 logger.exception("Error in ML consumer loop")
 
-            self._ml_consumer_thread = threading.Thread(
-                target=_ml_consumer_loop,
-                daemon=False,
-                name="MLConsumerThread"
-            )
-            self._ml_consumer_thread.start()
+        #     self._ml_consumer_thread = threading.Thread(
+        #         target=_ml_consumer_loop,
+        #         daemon=False,
+        #         name="MLConsumerThread"
+        #     )
+        #     self._ml_consumer_thread.start()
                     
             self.stop_sniffing_event.wait()  # Wait until stop event is set
         except Exception as e:
@@ -926,99 +926,99 @@ class PacketSniffer:
             logger.error(f"Failed to emit packet summary: {str(e)}")
 
 
-    def predict_with_ml(self, packet_info, features, vector, EXPECTED_FEATURES):
-        """
-        Run binary, multiclass, and autoencoder models on a single feature vector.
-        - packet_info: metadata about packet
-        - features: dict of raw feature values
-        - vector: numpy array shape (1, N)
-        - EXPECTED_FEATURES: list of column names in order
-        """
-        try:
-            # Prepare DataFrame for transforms
-            df = pd.DataFrame(vector, columns=EXPECTED_FEATURES)
+    # def predict_with_ml(self, packet_info, features, vector, EXPECTED_FEATURES):
+    #     """
+    #     Run binary, multiclass, and autoencoder models on a single feature vector.
+    #     - packet_info: metadata about packet
+    #     - features: dict of raw feature values
+    #     - vector: numpy array shape (1, N)
+    #     - EXPECTED_FEATURES: list of column names in order
+    #     """
+    #     try:
+    #         # Prepare DataFrame for transforms
+    #         df = pd.DataFrame(vector, columns=EXPECTED_FEATURES)
 
-            # 1) Binary classifiers
-            for name, (model, scaler) in self.binary_models.items():
-                Xs = scaler.transform(df)
-                y_pred = model.predict(Xs)[0]
-                if y_pred == 1:
-                    self._emit_ml_alert(
-                        alert_type=name,
-                        packet_info=packet_info,
-                        features=features,
-                        model_kind="binary",
-                    )
+    #         # 1) Binary classifiers
+    #         for name, (model, scaler) in self.binary_models.items():
+    #             Xs = scaler.transform(df)
+    #             y_pred = model.predict(Xs)[0]
+    #             if y_pred == 1:
+    #                 self._emit_ml_alert(
+    #                     alert_type=name,
+    #                     packet_info=packet_info,
+    #                     features=features,
+    #                     model_kind="binary",
+    #                 )
 
-            # 2) Multiclass Random Forest
-            rf, rf_scaler = self.multiclass_model
-            Xs_rf = rf_scaler.transform(df)
-            label = rf.predict(Xs_rf)[0]
-            label_str = self.label_map.get(label, str(label))
-            if label != 0:
-                self._emit_ml_alert(
-                    alert_type=label_str,
-                    packet_info=packet_info,
-                    features=features,
-                    model_kind="multiclass",
-                )
+    #         # 2) Multiclass Random Forest
+    #         rf, rf_scaler = self.multiclass_model
+    #         Xs_rf = rf_scaler.transform(df)
+    #         label = rf.predict(Xs_rf)[0]
+    #         label_str = self.label_map.get(label, str(label))
+    #         if label != 0:
+    #             self._emit_ml_alert(
+    #                 alert_type=label_str,
+    #                 packet_info=packet_info,
+    #                 features=features,
+    #                 model_kind="multiclass",
+    #             )
 
-            # 3) Autoencoder anomaly detection
-            X_ae = self.ae_scaler.transform(df)
-            # Compute reconstruction errors
-            errors = [
-                X_ae - m.predict(X_ae, verbose=0)
-                for m in self.ae_models
-            ]
-            avg_err = np.mean(errors, axis=0)
-            # Mahalanobis distance per sample
-            dist = distance.mahalanobis(
-                avg_err[0], np.zeros_like(avg_err[0]), self.ae_inv_cov
-            )
-            if dist > self.ae_threshold:
-                self._emit_anomaly_alert(
-                    packet_info=packet_info,
-                    features=features,
-                    distance=dist,
-                )
+    #         # 3) Autoencoder anomaly detection
+    #         X_ae = self.ae_scaler.transform(df)
+    #         # Compute reconstruction errors
+    #         errors = [
+    #             X_ae - m.predict(X_ae, verbose=0)
+    #             for m in self.ae_models
+    #         ]
+    #         avg_err = np.mean(errors, axis=0)
+    #         # Mahalanobis distance per sample
+    #         dist = distance.mahalanobis(
+    #             avg_err[0], np.zeros_like(avg_err[0]), self.ae_inv_cov
+    #         )
+    #         if dist > self.ae_threshold:
+    #             self._emit_anomaly_alert(
+    #                 packet_info=packet_info,
+    #                 features=features,
+    #                 distance=dist,
+    #             )
 
-        except Exception:
-            logger.exception("Error in ML prediction pipeline")
+    #     except Exception:
+    #         logger.exception("Error in ML prediction pipeline")
 
-    def _emit_ml_alert(self, alert_type, packet_info, features, model_kind):
-        """
-        Emit an ML-based alert.
-        - alert_type: name of attack or class label
-        - packet_info: raw packet metadata
-        - features: feature dict
-        - model_kind: 'binary' or 'multiclass'
-        """
-        alert = {
-            "source": "ML",
-            "type": alert_type,
-            "kind": model_kind,
-            "packet": packet_info,
-            "features": features,
-        }
-        # Hook into existing alerting pipeline
-        self.sio_queue.put(("ml_alert", alert))
-        logger.info(f"Emitted ML alert: {alert_type} ({model_kind})")
+    # def _emit_ml_alert(self, alert_type, packet_info, features, model_kind):
+    #     """
+    #     Emit an ML-based alert.
+    #     - alert_type: name of attack or class label
+    #     - packet_info: raw packet metadata
+    #     - features: feature dict
+    #     - model_kind: 'binary' or 'multiclass'
+    #     """
+    #     alert = {
+    #         "source": "ML",
+    #         "type": alert_type,
+    #         "kind": model_kind,
+    #         "packet": packet_info,
+    #         "features": features,
+    #     }
+    #     # Hook into existing alerting pipeline
+    #     self.sio_queue.put(("ml_alert", alert))
+    #     logger.info(f"Emitted ML alert: {alert_type} ({model_kind})")
 
-    def _emit_anomaly_alert(self, packet_info, features, distance):
-        """
-        Emit an anomaly alert based on autoencoder Mahalanobis distance.
-        - packet_info: raw packet metadata
-        - features: feature dict
-        - distance: computed Mahalanobis distance
-        """
-        alert = {
-            "source": "AE_Anomaly",
-            "distance": distance,
-            "packet": packet_info,
-            "features": features,
-        }
-        self.sio_queue.put(("ml_alert", alert))
-        logger.info(f"Emitted AE anomaly alert: dist={distance:.3f}")
+    # def _emit_anomaly_alert(self, packet_info, features, distance):
+    #     """
+    #     Emit an anomaly alert based on autoencoder Mahalanobis distance.
+    #     - packet_info: raw packet metadata
+    #     - features: feature dict
+    #     - distance: computed Mahalanobis distance
+    #     """
+    #     alert = {
+    #         "source": "AE_Anomaly",
+    #         "distance": distance,
+    #         "packet": packet_info,
+    #         "features": features,
+    #     }
+    #     self.sio_queue.put(("ml_alert", alert))
+    #     logger.info(f"Emitted AE anomaly alert: dist={distance:.3f}")
 
 
     def _packet_handler(self, packet: Packet):

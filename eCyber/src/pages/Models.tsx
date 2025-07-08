@@ -257,12 +257,12 @@ const Models = () => {
           </div>
           
           {/* Model filters */}
-          <ModelFilters 
+          {/* <ModelFilters 
             onSearch={setSearchTerm}
             onFilterChange={setSortBy}
             onStatusChange={setSelectedStatuses}
             selectedStatuses={selectedStatuses}
-          />
+          /> */}
           
           {/* Model insights (temporarily removed - to be replaced with dynamic insights) */}
           {/* 
@@ -338,9 +338,9 @@ const Models = () => {
           )}
           
           {/* Model Training */}
-          <div className="mb-6">
+          {/* <div className="mb-6">
             <ModelTraining />
-          </div>
+          </div> */}
           
           {/* Models list */}
           <Card className="bg-card/70 backdrop-blur-sm card-shine">

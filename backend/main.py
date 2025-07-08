@@ -54,6 +54,7 @@ from app.api import (
     models as ml_models_router,
     system as system_router,
     admin as admin_router,
+    ml_alerts as alerts
 )
 from app.api.v1.endpoints.threats import router as ml_threats
 from api.firewall_api import router as firewall_router
@@ -152,124 +153,124 @@ async def create_app() -> FastAPI:
         # blocker = ApplicationBlocker(sio)
 
         # Initialize Enhanced Security Components
-        global enhanced_ip_blocker, advanced_sig_engine, phishing_blocker
+        # global enhanced_ip_blocker, advanced_sig_engine, phishing_blocker
         
-        # Enhanced IP Blocker
-        enhanced_ip_blocker = EnhancedIPBlocker({
-            'db_path': 'data/blocked_ips.db',
-            'vlan_isolation_enabled': True
-        })
-        await enhanced_ip_blocker.start()
-        logger.info("Enhanced IP Blocker initialized")
+        # # Enhanced IP Blocker
+        # enhanced_ip_blocker = EnhancedIPBlocker({
+        #     'db_path': 'data/blocked_ips.db',
+        #     'vlan_isolation_enabled': True
+        # })
+        # await enhanced_ip_blocker.start()
+        # logger.info("Enhanced IP Blocker initialized")
         
-        # Advanced Signature Engine
-        advanced_sig_engine = AdvancedSignatureEngine({
-            'signature_db_path': 'data/signatures.db',
-            'signature_sources': [
-                {
-                    'type': 'custom_json',
-                    'url': 'https://raw.githubusercontent.com/emergingthreats/rules/master/rules/emerging-threats.json',
-                    'source': 'emerging_threats'
-                }
-            ],
-            'update_interval': 3600
-        })
-        await advanced_sig_engine.start()
-        logger.info("Advanced Signature Engine initialized")
+        # # Advanced Signature Engine
+        # advanced_sig_engine = AdvancedSignatureEngine({
+        #     'signature_db_path': 'data/signatures.db',
+        #     'signature_sources': [
+        #         {
+        #             'type': 'custom_json',
+        #             'url': 'https://raw.githubusercontent.com/emergingthreats/rules/master/rules/emerging-threats.json',
+        #             'source': 'emerging_threats'
+        #         }
+        #     ],
+        #     'update_interval': 3600
+        # })
+        # await advanced_sig_engine.start()
+        # logger.info("Advanced Signature Engine initialized")
         
-        # Advanced Phishing Blocker
-        phishing_blocker = AdvancedPhishingBlocker({
-            'phishing_db_path': 'data/phishing.db',
-            'threat_feeds': [
-                {
-                    'type': 'text',
-                    'url': 'https://openphish.com/feed.txt',
-                    'source': 'openphish'
-                }
-            ],
-            'update_interval': 1800,
-            'content_analysis_enabled': True,
-            'block_threshold': 0.7
-        })
-        await phishing_blocker.start()
-        logger.info("Advanced Phishing Blocker initialized")
+        # # Advanced Phishing Blocker
+        # phishing_blocker = AdvancedPhishingBlocker({
+        #     'phishing_db_path': 'data/phishing.db',
+        #     'threat_feeds': [
+        #         {
+        #             'type': 'text',
+        #             'url': 'https://openphish.com/feed.txt',
+        #             'source': 'openphish'
+        #         }
+        #     ],
+        #     'update_interval': 1800,
+        #     'content_analysis_enabled': True,
+        #     'block_threshold': 0.7
+        # })
+        # await phishing_blocker.start()
+        # logger.info("Advanced Phishing Blocker initialized")
 
-        # Initialize SIEM Integration
-        global siem_manager
-        siem_config = {
-            'elasticsearch': {
-                'elasticsearch_hosts': ['localhost:9200'],
-                'username': None,
-                'password': None,
-                'use_ssl': False,
-                'verify_certs': False,
-                'index_prefix': 'aurore-siem',
-                'batch_size': 100,
-                'flush_interval': 30
-            },
-            'kibana': {
-                'kibana_url': 'http://localhost:5601',
-                'username': None,
-                'password': None,
-                'space_id': 'default'
-            }
-        }
+        # # Initialize SIEM Integration
+        # global siem_manager
+        # siem_config = {
+        #     'elasticsearch': {
+        #         'elasticsearch_hosts': ['localhost:9200'],
+        #         'username': None,
+        #         'password': None,
+        #         'use_ssl': False,
+        #         'verify_certs': False,
+        #         'index_prefix': 'aurore-siem',
+        #         'batch_size': 100,
+        #         'flush_interval': 30
+        #     },
+        #     'kibana': {
+        #         'kibana_url': 'http://localhost:5601',
+        #         'username': None,
+        #         'password': None,
+        #         'space_id': 'default'
+        #     }
+        # }
         
-        try:
-            siem_manager = initialize_siem_manager(siem_config)
-            await siem_manager.start()
-            logger.info("SIEM Integration initialized successfully")
-        except Exception as e:
-            logger.warning(f"SIEM Integration failed to start: {e}")
-            logger.warning("Continuing without SIEM - install Elasticsearch and Kibana for full functionality")
+        # try:
+        #     siem_manager = initialize_siem_manager(siem_config)
+        #     await siem_manager.start()
+        #     logger.info("SIEM Integration initialized successfully")
+        # except Exception as e:
+        #     logger.warning(f"SIEM Integration failed to start: {e}")
+        #     logger.warning("Continuing without SIEM - install Elasticsearch and Kibana for full functionality")
 
-        # Initialize Performance Optimization
-        global performance_optimizer, database_optimizer
+        # # Initialize Performance Optimization
+        # global performance_optimizer, database_optimizer
         
-        performance_config = {
-            'monitoring': {
-                'monitoring_interval': 30,
-                'history_size': 1000,
-                'cpu_threshold': 80.0,
-                'memory_threshold': 85.0,
-                'disk_threshold': 90.0
-            }
-        }
+        # performance_config = {
+        #     'monitoring': {
+        #         'monitoring_interval': 30,
+        #         'history_size': 1000,
+        #         'cpu_threshold': 80.0,
+        #         'memory_threshold': 85.0,
+        #         'disk_threshold': 90.0
+        #     }
+        # }
         
-        database_config = {
-            'optimization_interval': 300,  # 5 minutes
-            'database_pools': {
-                'default': {
-                    'url': settings.SQLALCHEMY_DATABASE_URL, # <-- This line needs to change
-                    'min_size': 5,
-                    'max_size': 20,
-                    'max_queries': 50000,
-                    'max_inactive_connection_lifetime': 300,
-                    'query_optimizer': {
-                        'slow_query_threshold': 1.0
-                    }
-                }
-            },
-            'redis_pools': {
-                'default': {
-                    'url': getattr(settings, 'REDIS_URL', 'redis://localhost:6379'),
-                    'max_connections': 20
-                }
-            }
-        }
+        # database_config = {
+        #     'optimization_interval': 300,  # 5 minutes
+        #     'database_pools': {
+        #         'default': {
+        #             'url': settings.SQLALCHEMY_DATABASE_URL, # <-- This line needs to change
+        #             'min_size': 5,
+        #             'max_size': 20,
+        #             'max_queries': 50000,
+        #             'max_inactive_connection_lifetime': 300,
+        #             'query_optimizer': {
+        #                 'slow_query_threshold': 1.0
+        #             }
+        #         }
+        #     },
+        #     'redis_pools': {
+        #         'default': {
+        #             'url': getattr(settings, 'REDIS_URL', 'redis://localhost:6379'),
+        #             'max_connections': 20
+        #         }
+        #     }
+        # }
         
-        try:
-            performance_optimizer = PerformanceOptimizer(performance_config)
-            await performance_optimizer.start()
-            logger.info("Performance optimizer initialized successfully")
+        # try:
+        #     performance_optimizer = PerformanceOptimizer(performance_config)
+        #     await performance_optimizer.start()
+        #     logger.info("Performance optimizer initialized successfully")
             
-            database_optimizer = DatabaseOptimizer(database_config)
-            await database_optimizer.start()
-            logger.info("Database optimizer initialized successfully")
+        #     database_optimizer = DatabaseOptimizer(database_config)
+        #     await database_optimizer.start()
+        #     logger.info("Database optimizer initialized successfully")
             
-        except Exception as e:
-            logger.warning(f"Performance optimization failed to start: {e}")
-            logger.warning("Continuing without performance optimization")
+        # except Exception as e:
+        #     logger.warning(f"Performance optimization failed to start: {e}")
+        #     logger.warning("Continuing without performance optimization")
 
         # Initialize packet components INDEPENDENTLY
         global sniffer, sniffer_service, manager
@@ -284,23 +285,23 @@ async def create_app() -> FastAPI:
         sio.register_namespace(malware_events_ns)
         logger.info("Registered /malware_events namespace for EMPDRS communication.")
 
-        intel = ThreatIntel()
-        await intel.load_from_cache()
-        asyncio.create_task(intel.fetch_and_cache_feeds())
-        rules_path = os.path.join(os.path.dirname(__file__), "rules.json")
-        num_workers=min(2, multiprocessing.cpu_count())
-        ips = EnterpriseIPS(
-            rules_path,
-            sio,
-            intel,
-            num_workers,
-            sio_queue,
-            output_queue,
-            enhanced_ip_blocker=enhanced_ip_blocker,
-            signature_engine=advanced_sig_engine,
-            phishing_blocker=phishing_blocker,
-            siem_manager=siem_manager
-        )
+        # intel = ThreatIntel()
+        # await intel.load_from_cache()
+        # asyncio.create_task(intel.fetch_and_cache_feeds())
+        # rules_path = os.path.join(os.path.dirname(__file__), "rules.json")
+        # num_workers=min(2, multiprocessing.cpu_count())
+        # ips = EnterpriseIPS(
+        #     rules_path,
+        #     sio,
+        #     intel,
+        #     num_workers,
+        #     sio_queue,
+        #     output_queue,
+        #     enhanced_ip_blocker=enhanced_ip_blocker,
+        #     signature_engine=advanced_sig_engine,
+        #     phishing_blocker=phishing_blocker,
+        #     siem_manager=siem_manager
+        # )
 
         sniffer = PacketSniffer(sio_queue)
 
@@ -324,9 +325,9 @@ async def create_app() -> FastAPI:
 
         app.state.firewall = firewall
         app.state.signature_engine = signature_engine
-        app.state.enhanced_ip_blocker = enhanced_ip_blocker
-        app.state.advanced_signature_engine = advanced_sig_engine
-        app.state.phishing_blocker = phishing_blocker
+        # app.state.enhanced_ip_blocker = enhanced_ip_blocker
+        # app.state.advanced_signature_engine = advanced_sig_engine
+        # app.state.phishing_blocker = phishing_blocker
         # app.state.ids_signature_engine = ids_signature_engine
         # app.state.phishing_blocker = (
         #     phishing_blocker  # Store PhishingBlocker in app state
@@ -344,10 +345,10 @@ async def create_app() -> FastAPI:
             # loop = asyncio.get_running_loop()
             # await loop.run_in_executor(None, sniffer.start, "Wi-Fi"
             await sniffer_service.start()
-            await sniffer.start("Wi-Fi")
-            await monitor.start()
-            await ips.start()
-            logger.info("System monitoring started")
+            await sniffer.start("Ethernet 4")
+            # await monitor.start()
+            # await ips.start()
+            # logger.info("System monitoring started")
             # Start packet sniffer with IPS integration
 
             # Start IPS updates task
@@ -379,31 +380,31 @@ async def create_app() -> FastAPI:
             if sniffer:
                 sniffer.stop()
             # Shutdown enhanced security components
-            if enhanced_ip_blocker:
-                await enhanced_ip_blocker.stop()
-                logger.info("Enhanced IP Blocker stopped")
+            # if enhanced_ip_blocker:
+            #     await enhanced_ip_blocker.stop()
+            #     logger.info("Enhanced IP Blocker stopped")
             
-            if advanced_sig_engine:
-                await advanced_sig_engine.stop()
-                logger.info("Advanced Signature Engine stopped")
+            # if advanced_sig_engine:
+            #     await advanced_sig_engine.stop()
+            #     logger.info("Advanced Signature Engine stopped")
             
-            if phishing_blocker:
-                await phishing_blocker.stop()
-                logger.info("Advanced Phishing Blocker stopped")
+            # if phishing_blocker:
+            #     await phishing_blocker.stop()
+            #     logger.info("Advanced Phishing Blocker stopped")
             
-            # Shutdown SIEM Integration
-            if siem_manager:
-                await siem_manager.stop()
-                logger.info("SIEM Integration stopped")
+            # # Shutdown SIEM Integration
+            # if siem_manager:
+            #     await siem_manager.stop()
+            #     logger.info("SIEM Integration stopped")
             
-            # Shutdown Performance Optimization
-            if performance_optimizer:
-                await performance_optimizer.stop()
-                logger.info("Performance optimizer stopped")
+            # # Shutdown Performance Optimization
+            # if performance_optimizer:
+            #     await performance_optimizer.stop()
+            #     logger.info("Performance optimizer stopped")
             
-            if database_optimizer:
-                await database_optimizer.stop()
-                logger.info("Database optimizer stopped")
+            # if database_optimizer:
+            #     await database_optimizer.stop()
+            #     logger.info("Database optimizer stopped")
 
             # if hasattr(app.state, "phishing_blocker") and app.state.phishing_blocker:
             #     logger.info("Stopping PhishingBlocker...")
@@ -411,14 +412,14 @@ async def create_app() -> FastAPI:
             #     await app.state.phishing_blocker.stop()
             #     logger.info("PhishingBlocker stopped.")
 
-            if monitor:
-                await monitor.stop()
+            # if monitor:
+            #     await monitor.stop()
 
-            # await ips_adapter.stop()
-            # autofill_task.cancel()
-            await engine.dispose()  # Dispose DB engine
-            if ips:  # ips.stop() is async
-                await ips.stop()
+            # # await ips_adapter.stop()
+            # # autofill_task.cancel()
+            # await engine.dispose()  # Dispose DB engine
+            # if ips:  # ips.stop() is async
+            #     await ips.stop()
 
     # Set the lifespan after app creation
     app.router.lifespan_context = lifespan
@@ -454,6 +455,7 @@ async def create_app() -> FastAPI:
     app.include_router(user_router.router, prefix="/api/users", tags=["Users"])
     app.include_router(network_router.router, prefix="/api/network", tags=["Network"])
     app.include_router(auth_router.router, prefix="/api/auth", tags=["Auth"])
+    app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts"])
     # app.include_router(threat_router_v1, prefix="/api/v1/threats", tags=["Threats"])
     app.include_router(threat_router.router, prefix="/api/threats", tags=["Threats"])
     app.include_router(system_router.router, prefix="/api/system", tags=["System"])
@@ -551,7 +553,7 @@ if __name__ == "__main__":
 
     async def run():
         app = await create_app()  # Async FastAPI app creation
-        config = uvicorn.Config(app=app, host="127.0.0.1", port=8000, reload=False, loop="asyncio")
+        config = uvicorn.Config(app=app, host="0.0.0.0", port=8000, reload=False, loop="asyncio")
 
         server = uvicorn.Server(config)
 

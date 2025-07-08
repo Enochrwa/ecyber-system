@@ -1,0 +1,16 @@
+[
+  {
+    "flow_index": 0,
+    "anomaly_detected": false,
+    "predicted_label": "BENIGN",
+    "confidence": 0.8959495365391905,
+    "class_probabilities": {
+      "BENIGN": 0.8959495365391905,
+      "Brute Force": 0.09934985468878789,
+      "DDoS": 0.0005981274105542221,
+      "DoS": 0.0007153670214795508,
+      "Port Scan": 0.0002214959519415446,
+      "Web Attack": 0.003165618388046122
+    }
+  }
+]

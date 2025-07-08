@@ -2,6 +2,7 @@
 import React, { useEffect, lazy, useState, Suspense } from "react";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import AlertSound from "alert.mp3"
 import Index from "./pages/Index";
 
 import Dashboard from "./pages/Dashboard";
@@ -33,15 +34,41 @@ import { useSelector, useDispatch } from "react-redux" // Added useDispatch
 import { RootState } from "@/app/store"
 import { setIsBackendUp } from "@/app/slices/displaySlice"; // Added import for action
 import { checkBackendHealth } from "@/services/api"; // Added import for health check
+import useSocket from "./hooks/useSocket";
+import { useTelemetrySocket } from "./components/live-system/lib/socket";
+import { useThrottledSocket } from "./hooks/useThrottledSocket";
 
-
+interface IMLAlert {
+  alert:[]
+  prediction:[]
+}
 const App = () => {
   const { isConnected, connectionError, socket } = usePacketSniffer();
+  const { socket: socket2 } = useSocket()
+  const { getSocket } = useTelemetrySocket()
+  const rootSocket = getSocket()
 
   const [showLoader, setShowLoader] = useState(true);
   const dispatch = useDispatch();
   const isBackendUp = useSelector((state: RootState) => state.display.isBackendUp);
+  const [mlAlerts, setMlAlerts ] = useState<IMLAlert>([])
 
+  const [anomalies, setAnomalies] = useState([]);
+
+  useEffect(() => {
+    socket2?.on("ml_alert", (batch: IMLAlert[]) => {
+      if (Array.isArray(batch)) {
+        setMlAlerts(prev => [...prev, ...batch]); // append batch at once
+      } else {
+        setMlAlerts(prev => [...prev, batch]); // fallback in case it's not an array
+      }
+    });
+
+    return () => {
+      socket2?.off("ml_alert");
+    };
+  }, [mlAlerts]);
+  
   useEffect(() => {
     const performHealthCheck = async () => {
       try {
@@ -86,7 +113,7 @@ const App = () => {
         <Route path="/" element={<Index />} />
         <Route path="/loading" element={<CyberLoader />} />
         <Route element={<MainLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard mlAlerts={mlAlerts} />} />
           <Route path="/system" element={<System />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/threats" element={<Threats />} />

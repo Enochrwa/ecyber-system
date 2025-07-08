@@ -118,7 +118,7 @@ const routeToTabMap = {
   '/settings': 'settings'
 };
 
-const Dashboard = () => {
+const Dashboard = ({mlAlerts}) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -249,7 +249,7 @@ const Dashboard = () => {
   const [mlPredictionsData, setMlPredictionsData] = useState<AllMLPredictions | null>(null);
   const [isLoadingMlPredictions, setIsLoadingMlPredictions] = useState<boolean>(true);
   const [errorMlPredictions, setErrorMlPredictions] = useState<string | null>(null);
-  
+  const numThreats = useSelector((state: RootState) => state.display.numThreats)
   // Determine active tab based on current route
   const activeTab = routeToTabMap[location.pathname] || 'overview';
 
@@ -351,9 +351,7 @@ const Dashboard = () => {
       try {
         const token = localStorage.getItem("authToken");
         const response = await axios.get('http://127.0.0.1:8000/api/v1/users',{
-          headers:{
-            Authorization: `Bearer ${token}`
-          }
+          
         });
         // const response = await fetch('https://ecyber-backend.onrender.com/api/v1/users');
         if (!response?.data) {
@@ -385,7 +383,7 @@ const Dashboard = () => {
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'An unknown error occurred';
         setErrorMlAccuracy(msg);
-        console.error("Failed to fetch ML accuracy:", e);
+        console.error("Failed to  ML accuracy:", e);
       } finally {
         setIsLoadingMlAccuracy(false);
       }
@@ -437,17 +435,17 @@ const Dashboard = () => {
       setErrorMlPredictions(null);
       try {
         // http://127.0.0.1:8000/api/v1/models/list
-        const response = await fetch('http://127.0.0.1:8000/api/v1/models/predictions');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data: AllMLPredictions = await response.json();
+        // const response = await fetch('http://127.0.0.1:8000/api/v1/models/predictions');
+        // if (!response.ok) {
+        //   throw new Error(`HTTP error! status: ${response.status}`);
+        // }
+        const data: AllMLPredictions = mlAlerts
         setMlPredictionsData(data);
 
         // Dispatch event to send predictions to Header notifications
         if (data) {
           const mlNotificationsForHeader: any[] = []; // Define specific type if NotificationType is accessible here
-          Object.entries(data).forEach(([type, payload]) => {
+          Object.entries(data?.prediction).forEach(([type, payload]) => {
             if ('predictions' in payload && payload.predictions.length > 0) {
               // Create a summary notification for each type, or for each prediction
               // For simplicity, let's make one notification per loaded prediction file that has actual predictions
@@ -465,8 +463,8 @@ const Dashboard = () => {
 
               mlNotificationsForHeader.push({
                 id: `ml-pred-${type}-${payload.last_modified}`,
-                name: `ML: ${type.replace(/_/g, ' ')} Predictions`,
-                description: `${payload.predictions.length} predictions loaded. Highest severity: ${highestSeverity}. Click to see details.`,
+                name: `Anomaly detected`,
+                description: `Attack: ${type.replace(/_/g, ' ')} Predicted`,
                 severity: highestSeverity,
                 timestamp: payload.last_modified, // Use file's last_modified
                 type: 'ml_prediction', // Custom type for these notifications
@@ -495,7 +493,7 @@ const Dashboard = () => {
     };
     fetchMlPredictions();
 
-  }, []);
+  }, [mlAlerts]);
   
   // Handle tab change
   const handleTabChange = (value: string) => {
@@ -904,8 +902,8 @@ const Dashboard = () => {
                 
                 <MetricsCard 
                   title="Threats Today" 
-                  value={currentThreatMetrics.critical + currentThreatMetrics.warning + currentThreatMetrics.info + currentThreatMetrics.blocked}
-                  description={`${currentThreatMetrics.critical} critical, ${currentThreatMetrics.warning} warning, ${currentThreatMetrics.blocked} blocked`}
+                  value={ numThreats || (  currentThreatMetrics.critical + currentThreatMetrics.warning + currentThreatMetrics.info + currentThreatMetrics.blocked)}
+                  description={`${currentThreatMetrics.critical || Math.round(numThreats / 6)} critical, ${currentThreatMetrics.warning ||  Math.round(numThreats / 6)} warning, ${currentThreatMetrics.blocked} blocked`}
                   icon={<Shield size={16} />}
                   // Trend data would need historical metrics
                   // trend={{ direction: 'down', value: '5%', label: 'vs yesterday' }}

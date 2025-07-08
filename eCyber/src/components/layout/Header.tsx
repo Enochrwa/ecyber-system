@@ -132,7 +132,7 @@ const Header = () => {
               }
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-96"> {/* Increased width for better content display */}
+          <DropdownMenuContent align="end" className="w-96 max-h-96 overflow-y-auto"> {/* Added max-h-96 overflow-y-auto */}
             <DropdownMenuLabel className="flex items-center justify-between">
               <span>Notifications ({notifications.filter(n => !n.read).length} unread)</span>
               {notifications.some(n => !n.read) && (

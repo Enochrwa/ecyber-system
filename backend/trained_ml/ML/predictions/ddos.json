@@ -1,0 +1,302 @@
+[
+  {
+    "index": 5,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 10,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 14,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 23,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 26,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.5704898882947349,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.5704898882947349,
+      "DoS": 0.42951011170526504,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 28,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.5704898882947349,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.5704898882947349,
+      "DoS": 0.42951011170526504,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 38,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 44,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 46,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 51,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.5704898882947349,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.5704898882947349,
+      "DoS": 0.42951011170526504,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 53,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 55,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 63,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.5704898882947349,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.5704898882947349,
+      "DoS": 0.42951011170526504,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 66,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 67,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.5704898882947349,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.5704898882947349,
+      "DoS": 0.42951011170526504,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 81,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 85,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 99,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.5704898882947349,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.5704898882947349,
+      "DoS": 0.42951011170526504,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 106,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.6353708093161122,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.6353708093161122,
+      "DoS": 0.36462919068388777,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  },
+  {
+    "index": 112,
+    "anomaly_detected": true,
+    "true_label": "DDoS",
+    "predicted_label": "DDoS",
+    "confidence": 0.5704898882947349,
+    "class_probabilities": {
+      "BENIGN": 0.0,
+      "Brute Force": 0.0,
+      "DDoS": 0.5704898882947349,
+      "DoS": 0.42951011170526504,
+      "Port Scan": 0.0,
+      "Web Attack": 0.0
+    }
+  }
+]
