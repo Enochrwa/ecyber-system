@@ -17,7 +17,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 
-import usePacketSnifferSocket from '@/hooks/usePacketSnifferSocket';
+// import usePacketSnifferSocket from '@/hooks/usePacketSnifferSocket'; // Using general socket for ML alerts
+import useSocket from '@/hooks/useSocket'; // Import the general socket hook
 
 interface NotificationType {
   id: number | string;
@@ -25,72 +26,99 @@ interface NotificationType {
   description: string;
   severity: string;
   timestamp: string; // ISO string
-  type: string;
+  type: string; // e.g., 'ml_alert', 'system_alert'
   read: boolean;
+}
+
+// Define IMLAlert structure matching backend payload
+interface IMLAlert {
+  type: string; // Attack type like "Port Scan", "Brute Force"
+  source_ip: string;
+  destination_ip: string;
+  prediction: any; // Or a more specific type if prediction structure is known
+  timestamp: string; // ISO string from backend
 }
 
 const MAX_NOTIFICATIONS = 5;
 
 const Header = () => {
   const [isSearchActive, setIsSearchActive] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationType[]>([]);
+  // Initialize notifications from localStorage
+  const [notifications, setNotifications] = useState<NotificationType[]>(() => {
+    const storedNotifications = localStorage.getItem("headerNotifications");
+    return storedNotifications ? JSON.parse(storedNotifications) : [];
+  });
 
-    const { socket } = usePacketSnifferSocket();
+  const { socket } = useSocket(); // Use the general socket hook
 
-
-  // Set up Socket.IO client
+  // Persist notifications to localStorage whenever they change
   useEffect(() => {
-    // Handler for real-time socket alerts
+    localStorage.setItem("headerNotifications", JSON.stringify(notifications));
+  }, [notifications]);
+
+  // Effect for handling 'new_ml_alert' from the general socket
+  useEffect(() => {
     if (socket) {
-      const handleNewAlert = (newAlert: any) => {
-        console.log('Received new_alert:', newAlert);
-        const formattedAlert: NotificationType = {
-          id: newAlert.id || `socket-alert-${Date.now()}`, // Ensure ID exists
-          name: newAlert.name || 'System Alert',
-          description: newAlert.description || 'A new alert has been triggered.',
-          severity: newAlert.severity || 'info',
-          timestamp: newAlert.timestamp || new Date().toISOString(),
-          type: newAlert.type || 'socket',
+      const handleNewMlAlert = (mlAlertBatch: IMLAlert | IMLAlert[]) => {
+        const alertsArray = Array.isArray(mlAlertBatch) ? mlAlertBatch : [mlAlertBatch];
+        
+        const newNotifications: NotificationType[] = alertsArray.map((alert, index) => ({
+          id: `ml-${alert.timestamp}-${index}`, // Create a unique ID
+          name: `ML Alert: ${alert.type}`,
+          description: `Source: ${alert.source_ip}, Destination: ${alert.destination_ip}. Prediction: ${JSON.stringify(alert.prediction).substring(0,50)}...`,
+          severity: alert.prediction?.anomaly_detected || (alert.prediction?.predicted_label && alert.prediction?.predicted_label !== "BENIGN") ? 'warning' : 'info', // Basic severity logic
+          timestamp: alert.timestamp,
+          type: 'new_ml_alert',
           read: false,
-        };
+        }));
+
         setNotifications(prevNotifications =>
-          [formattedAlert, ...prevNotifications].slice(0, MAX_NOTIFICATIONS)
+          [...newNotifications, ...prevNotifications]
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) // Ensure latest are first
+            .slice(0, MAX_NOTIFICATIONS) // Keep only the max number of notifications
         );
       };
 
-      socket.on('new_alert', handleNewAlert);
-      socket.on('disconnect', (reason) => console.log('Socket.IO disconnected:', reason));
-      socket.on('connect_error', (error) => console.error('Socket.IO connection error:', error));
+      socket.on('new_ml_alert', handleNewMlAlert);
 
-      // Cleanup socket listeners
+      // Cleanup listener on component unmount or if socket changes
       return () => {
-        socket.off('new_alert', handleNewAlert);
-        // socket.disconnect(); // Potentially disconnect elsewhere if socket is shared
+        socket.off('new_ml_alert', handleNewMlAlert);
+      };
+    }
+  }, [socket]); // Re-run if socket instance changes
+
+  // Example: Handler for other types of socket alerts (e.g., general 'new_alert')
+  // This can be adapted from your existing usePacketSnifferSocket logic if needed
+  // For now, focusing on ml_alerts. If other 'new_alert' types are needed,
+  // they can be added here or managed by a different mechanism.
+  useEffect(() => {
+    if (socket) { // Assuming general socket might also emit 'new_alert'
+      const handleGenericNewAlert = (newAlertData: any) => {
+        const formattedAlert: NotificationType = {
+          id: newAlertData.id || `generic-alert-${Date.now()}`,
+          name: newAlertData.name || 'System Notification',
+          description: newAlertData.description || 'A new event occurred.',
+          severity: newAlertData.severity || 'info',
+          timestamp: newAlertData.timestamp || new Date().toISOString(),
+          type: newAlertData.type || 'generic_socket_event',
+          read: false,
+        };
+        setNotifications(prevNotifications =>
+          [formattedAlert, ...prevNotifications]
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .slice(0, MAX_NOTIFICATIONS)
+        );
+      };
+
+      socket.on('new_alert', handleGenericNewAlert); // Example: listen to a generic alert
+
+      return () => {
+        socket.off('new_alert', handleGenericNewAlert);
       };
     }
   }, [socket]);
 
-  // Listener for custom event for ML predictions
-  useEffect(() => {
-    const handleMlPredictionEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<NotificationType[]>;
-      const newMlNotifications = customEvent.detail;
-
-      if (newMlNotifications && newMlNotifications.length > 0) {
-        setNotifications(prevNotifications =>
-          [...newMlNotifications, ...prevNotifications].slice(0, MAX_NOTIFICATIONS * 2) // Allow more notifs temporarily if many ML come at once
-            .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) // Re-sort by time
-            .slice(0, MAX_NOTIFICATIONS) // Then trim to max
-        );
-      }
-    };
-
-    window.addEventListener('mlPredictionNotification', handleMlPredictionEvent);
-
-    return () => {
-      window.removeEventListener('mlPredictionNotification', handleMlPredictionEvent);
-    };
-  }, []);
 
   const handleMarkAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));

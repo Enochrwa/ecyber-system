@@ -42,7 +42,7 @@ import { UserList } from '@/components/dashboard/UserList'; // Import the new co
 import UnifiedAlertsComponent from '../components/dashboard/UnifiedAlertsComponent';
 import MLPredictionsDisplay from '../components/dashboard/MLPredictionsDisplay';
 import RealTimeThreatVisualization from '../components/dashboard/RealTimeThreatVisualization';
-
+import useSocket from '@/hooks/useSocket';
 // Mock data for activity stream - REMOVED
 
 // import { EmergingThreatDisplay } from './Threats'; // Assuming Threats.tsx exports this type
@@ -118,11 +118,20 @@ const routeToTabMap = {
   '/settings': 'settings'
 };
 
-const Dashboard = ({mlAlerts}) => {
+// Define IMLAlert structure matching backend payload, if not already globally available
+interface IMLAlert {
+  type: string; // Attack type like "Port Scan", "Brute Force"
+  source_ip: string;
+  destination_ip: string;
+  prediction: any; // Or a more specific type if prediction structure is known
+  timestamp: string; // ISO string from backend
+}
+
+
+const Dashboard = () => { // Removed mlAlerts prop
   const location = useLocation();
   const navigate = useNavigate();
-
-  
+  const { socket } = useSocket(); // Use the general socket hook
 
 
   const networkVolume = useSelector((state:RootState) => state.networkVolume.networkVolume);
@@ -217,38 +226,17 @@ const Dashboard = ({mlAlerts}) => {
   const [isLoadingGeneralSettings, setIsLoadingGeneralSettings] = useState<boolean>(true);
   const [errorGeneralSettings, setErrorGeneralSettings] = useState<string | null>(null);
 
-  // State for ML Predictions
-  interface ClassProbabilities {
-    BENIGN?: number;
-    "Brute Force"?: number;
-    DDoS?: number;
-    DoS?: number;
-    "Port Scan"?: number;
-    "Web Attack"?: number;
-    [key: string]: number | undefined; // Allow other keys
-  }
-
-  interface MLPredictionItem {
-    index: number;
-    anomaly_detected: boolean;
-    true_label: string; // Might not be used in UI if it's for evaluation
-    predicted_label: string;
-    confidence: number;
-    class_probabilities: ClassProbabilities;
-  }
-
-  interface MLPredictionPayload {
-    last_modified: string; // ISO date string
-    predictions: MLPredictionItem[];
-  }
-  
-  interface AllMLPredictions {
-    [predictionType: string]: MLPredictionPayload | { error: string };
-  }
-
-  const [mlPredictionsData, setMlPredictionsData] = useState<AllMLPredictions | null>(null);
-  const [isLoadingMlPredictions, setIsLoadingMlPredictions] = useState<boolean>(true);
+  // State for ML Predictions, now sourced from socket & local storage
+  // This structure might need to be adjusted based on how `MLPredictionsDisplay` expects data.
+  // For now, it will be an array of IMLAlert.
+  const [mlPredictionsData, setMlPredictionsData] = useState<IMLAlert[]>(() => {
+    const storedPredictions = localStorage.getItem("mlAlerts"); // Assuming App.tsx stores with this key
+    return storedPredictions ? JSON.parse(storedPredictions) : [];
+  });
+  const [isLoadingMlPredictions, setIsLoadingMlPredictions] = useState<boolean>(false); // Initially false, true if we need a loading state for socket data
   const [errorMlPredictions, setErrorMlPredictions] = useState<string | null>(null);
+
+
   const numThreats = useSelector((state: RootState) => state.display.numThreats)
   // Determine active tab based on current route
   const activeTab = routeToTabMap[location.pathname] || 'overview';
@@ -279,7 +267,44 @@ const Dashboard = ({mlAlerts}) => {
     }
   }, [offline, getSocket]); // Added getSocket to dependency array
 
-  // Fetch Emerging Threats from API
+
+  // Effect for handling 'new_ml_alert' from the general socket
+  useEffect(() => {
+    if (socket) {
+      const handleNewMlAlert = (mlAlertBatch: IMLAlert | IMLAlert[]) => {
+        const alertsArray = Array.isArray(mlAlertBatch) ? mlAlertBatch : [mlAlertBatch];
+        
+        setMlPredictionsData(prevPredictions => {
+          const updatedPredictions = [...alertsArray, ...prevPredictions]
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          // Optional: Limit stored predictions here if needed, though App.tsx might already do this for "mlAlerts"
+          // const MAX_DISPLAY_PREDICTIONS = 50; 
+          // return updatedPredictions.slice(0, MAX_DISPLAY_PREDICTIONS);
+          return updatedPredictions;
+        });
+        // No need to dispatch event for Header, it listens directly
+      };
+
+      socket.on('new_ml_alert', handleNewMlAlert);
+      // Also, update from localStorage initially and on changes if App.tsx is the sole writer
+      // This ensures Dashboard is in sync if it mounts after App.tsx has updated localStorage.
+      const handleStorageChange = () => {
+        const storedPredictions = localStorage.getItem("mlAlerts");
+        setMlPredictionsData(storedPredictions ? JSON.parse(storedPredictions) : []);
+      };
+      window.addEventListener('storage', handleStorageChange);
+
+
+      // Cleanup listener on component unmount or if socket changes
+      return () => {
+        socket.off('new_ml_alert', handleNewMlAlert);
+        window.removeEventListener('storage', handleStorageChange);
+      };
+    }
+  }, [socket]); // Re-run if socket instance changes
+
+
+  // Fetch Other API Data (Emerging Threats, User Summary, etc.) - This useEffect remains largely the same
   useEffect(() => {
     const fetchDashboardEmergingThreats = async () => {
       setIsLoadingApiEmergingThreats(true);
@@ -390,25 +415,7 @@ const Dashboard = ({mlAlerts}) => {
     };
     fetchMlAccuracy();
 
-    const fetchUsersList = async () => {
-      setIsLoadingUsersList(true);
-      setErrorUsersList(null);
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/v1/users/'); // Assuming this is the correct endpoint from v1 router
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data: UserListData[] = await response.json();
-        setUsersListData(data);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'An unknown error occurred';
-        setErrorUsersList(msg);
-        console.error("Failed to fetch users list:", e);
-      } finally {
-        setIsLoadingUsersList(false);
-      }
-    };
-    // fetchUsersList(); // Handled by UserList.tsx
+    // fetchUsersList is handled by UserList.tsx, so no need to call here
 
     const fetchGeneralSettings = async () => {
       setIsLoadingGeneralSettings(true);
@@ -430,70 +437,10 @@ const Dashboard = ({mlAlerts}) => {
     };
     fetchGeneralSettings();
 
-    const fetchMlPredictions = async () => {
-      setIsLoadingMlPredictions(true);
-      setErrorMlPredictions(null);
-      try {
-        // http://127.0.0.1:8000/api/v1/models/list
-        // const response = await fetch('http://127.0.0.1:8000/api/v1/models/predictions');
-        // if (!response.ok) {
-        //   throw new Error(`HTTP error! status: ${response.status}`);
-        // }
-        const data: AllMLPredictions = mlAlerts
-        setMlPredictionsData(data);
+    // Removed fetchMlPredictions as it's now handled by socket listener and localStorage
+    // The initial load from localStorage is handled in useState for mlPredictionsData
 
-        // Dispatch event to send predictions to Header notifications
-        if (data) {
-          const mlNotificationsForHeader: any[] = []; // Define specific type if NotificationType is accessible here
-          Object.entries(data?.prediction).forEach(([type, payload]) => {
-            if ('predictions' in payload && payload.predictions.length > 0) {
-              // Create a summary notification for each type, or for each prediction
-              // For simplicity, let's make one notification per loaded prediction file that has actual predictions
-              
-              // Determine severity based on predictions
-              let highestSeverity = "info"; // Default
-              payload.predictions.forEach(p => {
-                if (p.anomaly_detected && highestSeverity !== "critical") highestSeverity = "warning";
-                if (p.predicted_label && p.predicted_label.toLowerCase() !== "benign") {
-                     // Simple check: if not benign, could be warning or critical based on confidence or type
-                    if (p.confidence > 0.8) highestSeverity = "critical";
-                    else if (p.confidence > 0.6 && highestSeverity !== "critical") highestSeverity = "warning";
-                }
-              });
-
-              mlNotificationsForHeader.push({
-                id: `ml-pred-${type}-${payload.last_modified}`,
-                name: `Anomaly detected`,
-                description: `Attack: ${type.replace(/_/g, ' ')} Predicted`,
-                severity: highestSeverity,
-                timestamp: payload.last_modified, // Use file's last_modified
-                type: 'ml_prediction', // Custom type for these notifications
-                read: false,
-              });
-            }
-          });
-
-          if (mlNotificationsForHeader.length > 0) {
-            const event = new CustomEvent('mlPredictionNotification', { detail: mlNotificationsForHeader });
-            window.dispatchEvent(event);
-          }
-        }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'An unknown error occurred while fetching ML predictions';
-        setErrorMlPredictions(msg);
-        console.error("Failed to fetch ML predictions:", e);
-        // toast({
-        //   title: "Error Fetching ML Predictions",
-        //   description: msg,
-        //   variant: "destructive",
-        // });
-      } finally {
-        setIsLoadingMlPredictions(false);
-      }
-    };
-    fetchMlPredictions();
-
-  }, [mlAlerts]);
+  }, []); // Removed mlAlerts from dependency array as it's no longer a prop used for fetching
   
   // Handle tab change
   const handleTabChange = (value: string) => {

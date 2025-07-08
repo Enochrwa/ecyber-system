@@ -39,9 +39,13 @@ import { useTelemetrySocket } from "./components/live-system/lib/socket";
 import { useThrottledSocket } from "./hooks/useThrottledSocket";
 
 interface IMLAlert {
-  alert:[]
-  prediction:[]
+  type: string;
+  source_ip: string;
+  destination_ip: string;
+  prediction: any; // Consider defining a more specific type for prediction
+  timestamp: string;
 }
+
 const App = () => {
   const { isConnected, connectionError, socket } = usePacketSniffer();
   const { socket: socket2 } = useSocket()
@@ -51,23 +55,38 @@ const App = () => {
   const [showLoader, setShowLoader] = useState(true);
   const dispatch = useDispatch();
   const isBackendUp = useSelector((state: RootState) => state.display.isBackendUp);
-  const [mlAlerts, setMlAlerts ] = useState<IMLAlert>([])
+  // Initialize mlAlerts from localStorage
+  const [mlAlerts, setMlAlerts ] = useState<IMLAlert[]>(() => {
+    const storedAlerts = localStorage.getItem("mlAlerts");
+    return storedAlerts ? JSON.parse(storedAlerts) : [];
+  });
 
   const [anomalies, setAnomalies] = useState([]);
 
   useEffect(() => {
-    socket2?.on("ml_alert", (batch: IMLAlert[]) => {
-      if (Array.isArray(batch)) {
-        setMlAlerts(prev => [...prev, ...batch]); // append batch at once
-      } else {
-        setMlAlerts(prev => [...prev, batch]); // fallback in case it's not an array
-      }
+    // Persist mlAlerts to localStorage whenever it changes
+    localStorage.setItem("mlAlerts", JSON.stringify(mlAlerts));
+  }, [mlAlerts]);
+
+  useEffect(() => {
+    socket2?.on("new_ml_alert", (batch: IMLAlert[] | IMLAlert) => { // Adjusted to handle single or batch
+      setMlAlerts(prevAlerts => {
+        const newAlerts = Array.isArray(batch) ? batch : [batch];
+        // Add new alerts and prevent duplicates based on a unique key if available, e.g., prediction.id + timestamp
+        // For now, just adding, assuming backend might send same alert if not handled there.
+        // A more robust solution would involve a unique ID for each alert.
+        const updatedAlerts = [...prevAlerts, ...newAlerts].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        // Optional: Limit the number of stored alerts to prevent localStorage from growing too large
+        // const MAX_STORED_ALERTS = 200; 
+        // return updatedAlerts.slice(0, MAX_STORED_ALERTS);
+        return updatedAlerts;
+      });
     });
 
     return () => {
-      socket2?.off("ml_alert");
+      socket2?.off("new_ml_alert");
     };
-  }, [mlAlerts]);
+  }, [socket2]); // Dependency array includes socket2 to re-subscribe if it changes
   
   useEffect(() => {
     const performHealthCheck = async () => {

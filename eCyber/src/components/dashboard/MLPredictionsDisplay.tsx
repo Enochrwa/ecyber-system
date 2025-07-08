@@ -133,7 +133,6 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
   const [activeTab, setActiveTab] = useState<'overview' | 'predictions' | 'performance'>('predictions'); // Default to predictions tab
   const dispatch = useDispatch();
 
-  console.log("Type of predictionsData: ", typeof predictionsData)
   // Mock data for models - keep for overview tab for now, or remove if focusing only on predictions
   const [models] = useState<MLModel[]>([
     {
