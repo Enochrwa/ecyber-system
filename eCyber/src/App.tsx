@@ -37,7 +37,7 @@ import { checkBackendHealth } from "@/services/api";
 import useSocket from "./hooks/useSocket";
 import { useTelemetrySocket } from "./components/live-system/lib/socket";
 import { useThrottledSocket } from "./hooks/useThrottledSocket";
-import { IMLAlert, addMlAlerts } from "./app/slices/mlAlertsSlice"; // Import IMLAlert and action
+import { IMLAlert, addMlAlerts } from "@/app/slices/mlAlertsSlice"; // Import IMLAlert and action
 
 const App = () => {
   const { isConnected, connectionError, socket } = usePacketSniffer(); // This socket might be for packet sniffing specifically

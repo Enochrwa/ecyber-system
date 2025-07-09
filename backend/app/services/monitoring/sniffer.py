@@ -1475,7 +1475,7 @@ class PacketSniffer:
             return "medium"
         if score >= 10:
             return "low"
-        return "info"
+        return "medium"
 
     def _get_nxdomain_ratio(self, queries: list) -> float:
         """Calculate ratio of NXDOMAIN responses with validation"""

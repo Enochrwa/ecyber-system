@@ -34,14 +34,88 @@ interface ThreatMapProps {
 }
 
 // Simulated data for canvas map points (as lat/long not in alerts)
-const mockCanvasLocations: ThreatLocation[] = [
-  { id: "canvas-1", latitude: 40.7128, longitude: -74.0060, name: "New York", severity: "critical", count: 5 },
-  { id: "canvas-2", latitude: 51.5074, longitude: -0.1278, name: "London", severity: "warning", count: 3 },
-  { id: "canvas-3", latitude: 35.6762, longitude: 139.6503, name: "Tokyo", severity: "info", count: 2 },
-];
+// const mockCanvasLocations: ThreatLocation[] = [
+//   { id: "canvas-1", latitude: 40.7128, longitude: -74.0060, name: "New York", severity: "critical", count: 5 },
+//   { id: "canvas-2", latitude: 51.5074, longitude: -0.1278, name: "London", severity: "warning", count: 3 },
+//   { id: "canvas-3", latitude: 35.6762, longitude: 139.6503, name: "Tokyo", severity: "info", count: 2 },
+// ];
+
+// --- Helper: Basic GeoIP from IP (Illustrative - replace with actual library or backend service) ---
+// This is a very basic placeholder. In a real app, use a library or backend service.
+const getGeoFromIp = (ip: string): { latitude?: number; longitude?: number; country?: string } => {
+  if (!ip) return {};
+  // Simple hash function to generate pseudo-random but consistent coordinates for IPs
+  let hash = 0;
+  for (let i = 0; i < ip.length; i++) {
+    const char = ip.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+
+  // Generate somewhat plausible global coordinates
+  // This is NOT real GeoIP, just for visualization diversity
+  const pseudoLat = (hash % 180) - 90; // -90 to 90
+  const pseudoLng = (hash % 360) - 180; // -180 to 180
+  
+  // Very basic country association (example)
+  const firstOctet = parseInt(ip.split('.')[0]);
+  let country = "Unknown";
+  if (firstOctet >= 1 && firstOctet <= 126) country = "USA";
+  else if (firstOctet >= 128 && firstOctet <= 191) country = "Europe";
+  else if (firstOctet >= 192 && firstOctet <= 223) country = "Asia";
+
+
+  // For known IPs, return more specific mock data
+  if (ip.startsWith("203.0")) return { latitude: 40.7128, longitude: -74.0060, country: "USA (NY)" };
+  if (ip.startsWith("198.51")) return { latitude: 51.5074, longitude: -0.1278, country: "UK (London)" };
+  if (ip.startsWith("192.0.2")) return { latitude: 35.6762, longitude: 139.6503, country: "Japan (Tokyo)" };
+  if (ip.startsWith("8.8.8")) return { latitude: 37.3861, longitude: -122.0839, country: "USA (Google)" };
+
+
+  return { latitude: pseudoLat, longitude: pseudoLng, country: country };
+};
+
 
 const ThreatMap: React.FC<ThreatMapProps> = ({ className, threatsData }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Process data for canvas map points from actual threatsData
+  const canvasMapLocations = useMemo(() => {
+    if (!threatsData || threatsData.length === 0) {
+      // Return a few default points or an empty array if no threats
+      return [
+        { id: "placeholder-1", latitude: 30, longitude: -20, name: "Atlantic Region", severity: "info", count: 0 },
+        { id: "placeholder-2", latitude: 20, longitude: 100, name: "Asia-Pacific Region", severity: "info", count: 0 },
+      ];
+    }
+
+    const locationCounts: { [key: string]: ThreatLocation } = {};
+    threatsData.forEach((threat, index) => {
+      const geo = getGeoFromIp(threat.source_ip || `unknown-${index}`); // Use index for unique key if IP is missing
+      const key = threat.source_ip || geo.country || `loc-${index}`;
+
+      if (!locationCounts[key]) {
+        locationCounts[key] = {
+          id: key,
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+          name: geo.country || threat.source_ip || "Unknown Source",
+          severity: threat.severity?.toLowerCase() || 'info',
+          count: 0,
+        };
+      }
+      locationCounts[key].count++;
+      // Potentially update severity if a new threat for this location is higher
+      const severityOrder = { critical: 3, warning: 2, blocked: 1, info: 0 };
+      const currentSeverity = locationCounts[key].severity.toLowerCase();
+      const newSeverity = threat.severity?.toLowerCase() || 'info';
+      if (severityOrder[newSeverity] > severityOrder[currentSeverity]) {
+        locationCounts[key].severity = newSeverity;
+      }
+    });
+    return Object.values(locationCounts).filter(loc => loc.latitude && loc.longitude); // Only use locations with coordinates
+  }, [threatsData]);
+
 
   // Process data for Threat Activity Chart using useMemo
   const chartData = useMemo(() => {
@@ -105,7 +179,7 @@ const ThreatMap: React.FC<ThreatMapProps> = ({ className, threatsData }) => {
       .slice(0, 5);
   }, [threatsData]);
 
-  // Redraw canvas when component mounts - uses MOCK data for points
+  // Redraw canvas when component mounts or canvasMapLocations changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -166,10 +240,15 @@ const ThreatMap: React.FC<ThreatMapProps> = ({ className, threatsData }) => {
         currentCtx.stroke();
       }
 
-      mockCanvasLocations.forEach((threat) => {
+      // Use processed canvasMapLocations from threatsData
+      canvasMapLocations.forEach((threat) => {
         if (!threat.latitude || !threat.longitude || !canvasRef.current) return;
         
-        const x = canvasRef.current.width / 2 + (threat.longitude / 180) * (canvasRef.current.width / 3);
+        // Adjust scaling factor as needed for better map projection
+        const mapRadiusX = canvasRef.current.width / 2.5; // Adjust for desired spread
+        const mapRadiusY = canvasRef.current.height / 2.5;
+
+        const x = canvasRef.current.width / 2 + (threat.longitude / 180) * mapRadiusX;
         const y = canvasRef.current.height / 2 - (threat.latitude / 90) * (canvasRef.current.height / 4);
        
         let color = 'rgba(14, 165, 233, 0.8)'; // info blue
@@ -193,11 +272,16 @@ const ThreatMap: React.FC<ThreatMapProps> = ({ className, threatsData }) => {
       });
     };
     
-    let animationFrameId = requestAnimationFrame(drawPulses);
-    drawPulses();
+    let animationFrameId: number;
+    
+    const animate = () => {
+      drawPulses();
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    animate(); // Start animation loop
     
     return () => cancelAnimationFrame(animationFrameId);
-  }, []);
+  }, [canvasMapLocations]); // Redraw if canvasMapLocations changes
 
   return (
     <Card className={`${className} shadow-lg border-border relative overflow-hidden`}>

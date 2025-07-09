@@ -929,7 +929,7 @@ const Dashboard = () => {
               </TabsList>
               
               <TabsContent value="overview" className="space-y-4">
-                <ThreatMap 
+                {/* <ThreatMap 
                   className="animate-fade-in" 
                   threatsData={
                     [
@@ -937,7 +937,7 @@ const Dashboard = () => {
                       ...(Array.isArray(threatDetections) ? threatDetections : [])
                     ]
                   } 
-                />
+                /> */}
 
                 {/* Enhanced Security Components */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">

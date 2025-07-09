@@ -55,6 +55,7 @@ from app.api import (
     system as system_router,
     admin as admin_router,
     ml_alerts as alerts
+
 )
 from app.api.v1.endpoints.threats import router as ml_threats
 from api.firewall_api import router as firewall_router
@@ -461,6 +462,7 @@ async def create_app() -> FastAPI:
     app.include_router(system_router.router, prefix="/api/system", tags=["System"])
     app.include_router(admin_router.router, prefix="/api/admin", tags=["Admin"])
     app.include_router(api_v1_router, prefix="/api/v1", tags=["APIv1"])
+    # app.include_router(firewall_route.router, prefix="/api/firewall", tags=["Firewall"])
     app.include_router(
         ml_models_router.router, prefix="/api/v1/models", tags=["models"]
     )  # Added for ML models

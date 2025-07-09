@@ -1,96 +1,114 @@
 
 import React from "react";
 import DataTable from "./DataTable";
-import { ThreatDetection } from "@/types";
-import ThreatBadge from "./ThreatBadge";
+import { ThreatDetection, Alert } from "@/types"; // Assuming Alert is a more generic type from types.ts
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getSeverityConfig, getTypeConfig, formatAlertTimestamp, displayValue } from "../lib/config";
+import { cn } from "@/lib/utils";
 
 interface ThreatDetectionsTableProps {
-  threats: ThreatDetection[];
+  // Use a more generic Alert type if ThreatDetection is too specific or lacks common fields
+  threats: Alert[]; 
   className?: string;
 }
 
 const ThreatDetectionsTable = ({ threats, className }: ThreatDetectionsTableProps) => {
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   const columns = [
-    // {
-    //   key: "id",
-    //   header: "Threat ID",
-    //   cell: (threat: ThreatDetection) => <span className="font-mono text-xs">{threat.id}</span>,
-    //   sortable: true,
-    // },
-    {
-      key: "message",
-      header: "Message",
-      cell: (threat: ThreatDetection) => <span>{threat.message}</span>,
-      sortable: true,
-    },
     {
       key: "severity",
       header: "Severity",
-      cell: (threat: ThreatDetection) => <ThreatBadge severity={threat.severity} />,
+      cell: (item: Alert) => {
+        const config = getSeverityConfig(item.severity);
+        return (
+          <Badge variant="outline" className={cn("border", config.borderColor, config.bgColor, config.textColor)}>
+            <config.icon className={cn("w-3.5 h-3.5 mr-1.5", config.textColor)} />
+            {config.label}
+          </Badge>
+        );
+      },
       sortable: true,
     },
     {
-      key: "sourceIp",
+      key: "threat_type", // Assuming 'threat_type' field exists on Alert
+      header: "Type",
+      cell: (item: Alert) => {
+        // Try to infer a more specific type if possible, otherwise use a generic 'threat'
+        const typeKey = item.threat_type || (item.type ? String(item.type) : 'threat');
+        const config = getTypeConfig(typeKey);
+        return (
+          <span className={cn("flex items-center", config.color)}>
+            <config.icon className="w-4 h-4 mr-1.5" />
+            {config.label}
+          </span>
+        );
+      },
+      sortable: true,
+    },
+    {
+      key: "description", // Renamed from message for consistency if Alert uses description
+      header: "Description",
+      cell: (item: Alert) => (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <span className="truncate block max-w-xs">{displayValue(item.description || item.message)}</span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{displayValue(item.description || item.message)}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ),
+      sortable: true,
+    },
+    {
+      key: "source_ip",
       header: "Source IP",
-      cell: (threat: ThreatDetection) => <span className="font-mono text-xs">{threat.sourceIp}</span>,
+      cell: (item: Alert) => <span className="font-mono text-xs">{displayValue(item.source_ip)}</span>,
       sortable: true,
     },
     {
-      key: "targetSystem",
-      header: "Target System",
-      cell: (threat: ThreatDetection) => <span>{threat.targetSystem}</span>,
+      key: "destination_ip", // Added destination IP
+      header: "Destination IP",
+      cell: (item: Alert) => <span className="font-mono text-xs">{displayValue(item.destination_ip)}</span>,
+      sortable: true,
+    },
+    {
+      key: "protocol", // Added protocol
+      header: "Protocol",
+      cell: (item: Alert) => <span className="text-xs">{displayValue(item.protocol)}</span>,
       sortable: true,
     },
     {
       key: "timestamp",
       header: "Timestamp",
-      cell: (threat: ThreatDetection) => <span>{formatTimestamp(threat.timestamp)}</span>,
+      cell: (item: Alert) => <span>{formatAlertTimestamp(item.timestamp)}</span>,
       sortable: true,
     },
     {
-      key: "iocs",
-      header: "Related IOCs",
-      cell: (threat: ThreatDetection) => (
-        <div className="flex flex-wrap gap-1">
-          {threat.iocs.slice(0, 2).map((ioc, index) => (
-            <span 
-              key={index} 
-              className="bg-muted px-1.5 py-0.5 rounded text-xs"
-            >
-              {ioc}
-            </span>
-          ))}
-          {threat.iocs.length > 2 && (
-            <span className="text-xs text-muted-foreground">
-              +{threat.iocs.length - 2} more
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "mitigationStatus",
-      header: "Mitigation Status",
-      cell: (threat: ThreatDetection) => (
-        <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
-          threat.mitigationStatus === "Auto-mitigated" 
-            ? "bg-threat-low/10 text-threat-low" 
-            : "bg-threat-high/10 text-threat-high"
-        }`}>
-          {threat.mitigationStatus}
-        </span>
-      ),
+      key: "rule_id", // Assuming rule_id might be part of metadata or a direct field
+      header: "Rule ID",
+      cell: (item: Alert) => <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{displayValue(item.rule_id || item.metadata?.rule_id)}</span>,
       sortable: true,
     },
+    // Example for mitigation status if it's part of the Alert type
+    // {
+    //   key: "mitigationStatus",
+    //   header: "Mitigation",
+    //   cell: (item: Alert) => (
+    //     item.metadata?.mitigationStatus ? (
+    //       <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
+    //         item.metadata.mitigationStatus === "Auto-mitigated" 
+    //           ? "bg-green-100 text-green-700" 
+    //           : "bg-yellow-100 text-yellow-700"
+    //       }`}>
+    //         {displayValue(item.metadata.mitigationStatus)}
+    //       </span>
+    //     ) : displayValue(null)
+    //   ),
+    //   sortable: true,
+    // },
   ];
 
   return (

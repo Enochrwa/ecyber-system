@@ -48,10 +48,9 @@ async def kali_linux(request: Request):
                     {**item, "timestamp": timestamp} for item in combined_batch
                 ]
                 await sio.emit("new_ml_alert", combined_batch_with_timestamp)
-                print(f"Sent batch of predictions for {combined_batch}")
 
                 return JSONResponse(
-                    content={"status": "ok", "message": "Batch of predictions sent."},
+                    content={"sta2tus": "ok", "message": "Batch of predictions sent."},
                     status_code=200,
                 )
             else:

@@ -30,7 +30,7 @@ interface MlAlertsState {
   error: string | null;
 }
 
-const MAX_STORED_ALERTS = 200; // Define a max number of alerts to store
+const MAX_STORED_ALERTS = 30; // Define a max number of alerts to store
 
 // Function to load state from localStorage
 const loadState = (): IMLAlert[] => {

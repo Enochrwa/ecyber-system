@@ -1,7 +1,11 @@
 
 import React from "react";
 import DataTable from "./DataTable";
-import { PhishingDetection } from "@/types";
+import { PhishingDetection } from "@/types"; // Assuming PhishingDetection has severity, or we use a more generic Alert type
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getSeverityConfig, getTypeConfig, formatAlertTimestamp, displayValue } from "../lib/config";
+import { cn } from "@/lib/utils";
 
 interface PhishingDetectionsTableProps {
   detections: PhishingDetection[];
@@ -9,36 +13,51 @@ interface PhishingDetectionsTableProps {
 }
 
 const PhishingDetectionsTable = ({ detections, className }: PhishingDetectionsTableProps) => {
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   const columns = [
+    {
+      key: "severity", // Assuming PhishingDetection type will be updated or has severity
+      header: "Severity",
+      cell: (detection: PhishingDetection) => {
+        const severityStr = detection.severity || (detection.confidenceScore > 80 ? 'high' : detection.confidenceScore > 60 ? 'medium' : 'low');
+        const config = getSeverityConfig(severityStr);
+        return (
+          <Badge variant="outline" className={cn("border", config.borderColor, config.bgColor, config.textColor)}>
+            <config.icon className={cn("w-3.5 h-3.5 mr-1.5", config.textColor)} />
+            {config.label}
+          </Badge>
+        );
+      },
+      sortable: true,
+    },
     {
       key: "url",
       header: "Detected URL",
       cell: (detection: PhishingDetection) => (
-        <span className="text-xs font-mono break-all">{detection.url}</span>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <span className="text-xs font-mono break-all truncate block max-w-md">{displayValue(detection.url)}</span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{displayValue(detection.url)}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       ),
       sortable: true,
     },
     {
       key: "confidenceScore",
-      header: "Confidence Score",
+      header: "Confidence",
       cell: (detection: PhishingDetection) => (
         <div className="flex items-center">
-          <div className="h-2 w-full max-w-24 bg-muted rounded-full overflow-hidden mr-2">
+          <div className="h-2 w-full max-w-20 bg-muted rounded-full overflow-hidden mr-2">
             <div 
-              className="h-full bg-threat-high" 
-              style={{ width: `${detection.confidenceScore}%` }}
+              className="h-full bg-orange-500" // Use a consistent color or map to severity
+              style={{ width: `${detection.confidenceScore || 0}%` }}
             />
           </div>
-          <span className="text-xs">{detection.confidenceScore.toFixed(1)}%</span>
+          <span className="text-xs">{displayValue(detection.confidenceScore?.toFixed(1) || 0)}%</span>
         </div>
       ),
       sortable: true,
@@ -48,56 +67,37 @@ const PhishingDetectionsTable = ({ detections, className }: PhishingDetectionsTa
       header: "Categories",
       cell: (detection: PhishingDetection) => (
         <div className="flex flex-wrap gap-1">
-          {detection.categories.map((category, index) => {
-            let bgClass = "bg-muted";
-            let textClass = "text-foreground";
-            
-            if (category === "Phishing") {
-              bgClass = "bg-threat-high/10";
-              textClass = "text-threat-high";
-            } else if (category === "Malware") {
-              bgClass = "bg-threat-critical/10";
-              textClass = "text-threat-critical";
-            } else if (category === "Scam") {
-              bgClass = "bg-threat-medium/10";
-              textClass = "text-threat-medium";
-            }
-            
+          {(detection.categories || []).map((category, index) => {
+            const typeConfig = getTypeConfig(category.toLowerCase()); // Try to map category to a type
             return (
-              <span 
+              <Badge 
                 key={index} 
-                className={`${bgClass} ${textClass} px-1.5 py-0.5 rounded text-xs`}
+                variant="secondary"
+                className={cn("text-xs", typeConfig.label !== 'Unknown Event' ? typeConfig.color : 'text-gray-600')}
               >
                 {category}
-              </span>
+              </Badge>
             );
           })}
+          {(detection.categories || []).length === 0 && displayValue(null)}
         </div>
       ),
     },
-    {
-      key: "clickThroughRate",
-      header: "Click-Through Rate",
-      cell: (detection: PhishingDetection) => (
-        <span>
-          {detection.clickThroughRate !== null 
-            ? `${(detection.clickThroughRate * 100).toFixed(1)}%` 
-            : "N/A"}
-        </span>
-      ),
-      sortable: true,
-    },
+    // { // clickThroughRate might be less relevant for direct alert display, can be in details
+    //   key: "clickThroughRate",
+    //   header: "Click-Through Rate",
+    //   cell: (detection: PhishingDetection) => (
+    //     <span>
+    //       {displayValue(detection.clickThroughRate !== null ? `${(detection.clickThroughRate * 100).toFixed(1)}%` : null)}
+    //     </span>
+    //   ),
+    //   sortable: true,
+    // },
     {
       key: "detectionSource",
-      header: "Detection Source",
+      header: "Source",
       cell: (detection: PhishingDetection) => (
-        <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
-          detection.detectionSource === "Automated"
-            ? "bg-primary/10 text-primary" 
-            : "bg-accent/80 text-accent-foreground"
-        }`}>
-          {detection.detectionSource}
-        </span>
+         <Badge variant="outline">{displayValue(detection.detectionSource)}</Badge>
       ),
       sortable: true,
     },
@@ -105,7 +105,7 @@ const PhishingDetectionsTable = ({ detections, className }: PhishingDetectionsTa
       key: "timestamp",
       header: "Timestamp",
       cell: (detection: PhishingDetection) => (
-        <span>{formatTimestamp(detection.timestamp)}</span>
+        <span>{formatAlertTimestamp(detection.timestamp)}</span>
       ),
       sortable: true,
     },
