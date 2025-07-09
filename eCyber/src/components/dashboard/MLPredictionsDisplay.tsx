@@ -25,54 +25,169 @@ import { RootState } from '@/app/store';
 import { cn } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { addThreats } from '@/app/slices/displaySlice';
-// Interfaces from Dashboard.tsx for the props
-interface ClassProbabilities {
-  BENIGN?: number;
-  "Brute Force"?: number;
-  DDoS?: number;
-  DoS?: number;
-  "Port Scan"?: number;
-  "Web Attack"?: number;
-  [key: string]: number | undefined;
-}
+import { IMLAlert } from '@/app/slices/mlAlertsSlice'; // Import IMLAlert
 
-interface MLPredictionItemFromAPI {
-  index: number;
-  anomaly_detected: boolean;
-  true_label: string;
-  predicted_label: string;
-  confidence: number;
-  class_probabilities: ClassProbabilities;
-}
-
-interface MLPredictionPayloadFromAPI {
-  last_modified: string;
-  predictions: MLPredictionItemFromAPI[];
-}
-
-interface AllMLPredictionsFromAPI {
-  [predictionType: string]: MLPredictionPayloadFromAPI | { error: string };
-}
+// Old API interfaces (can be removed or kept for reference if other parts use them)
+// interface ClassProbabilities { ... }
+// interface MLPredictionItemFromAPI { ... }
+// interface MLPredictionPayloadFromAPI { ... }
+// interface AllMLPredictionsFromAPI { ... }
 
 interface MLPredictionsDisplayProps {
-  predictionsData: AllMLPredictionsFromAPI | null;
+  predictionsData: IMLAlert[] | null; // Updated to use IMLAlert[] from Redux
   isLoading: boolean;
   error: string | null;
 }
 
-// Internal component interfaces (can be adjusted)
+// Internal component interface for display purposes
 interface DisplayablePrediction {
-  id: string; // Combination of type and index
-  modelName: string; // Derived from prediction type
-  predictionType: 'threat' | 'anomaly' | 'classification'; // Simplified for display
-  confidence: number;
-  prediction: string; // From predicted_label
-  timestamp: string; // From last_modified of the prediction file
-  anomalyDetected: boolean;
-  // inputFeatures?: Record<string, any>; // Not directly available in current API data for predictions
-  // actualValue?: string; // Not focusing on this for now
-  // isCorrect?: boolean; // Not focusing on this for now
+  id: string; // Unique ID for the alert item (e.g., from IMLAlert.id)
+  modelName: string; // Derived from IMLAlert.type (e.g., "Port Scan" -> "Port Scan Model")
+  attackType: string; // IMLAlert.type
+  predictionType: 'threat' | 'anomaly' | 'classification'; // Simplified category for UI
+  confidence: number; // From IMLAlert.prediction.confidence
+  predictedLabel: string; // From IMLAlert.prediction.predicted_label
+  timestamp: string; // From IMLAlert.timestamp
+  anomalyDetected: boolean; // From IMLAlert.prediction.anomaly_detected
+  sourceIp: string; // From IMLAlert.source_ip
+  destinationIp: string; // From IMLAlert.destination_ip
+  classProbabilities?: { [key: string]: number }; // From IMLAlert.prediction.class_probabilities
+  // trueLabel?: string; // From IMLAlert.prediction.true_label - for display if needed
 }
+
+// Wrap PredictionItem with React.memo
+const PredictionItem = React.memo(function PredictionItem({ prediction }: { prediction: DisplayablePrediction }) {
+  const typeConfig = modelTypeConfig[prediction.predictionType];
+  const TypeIcon = typeConfig.icon;
+
+  const classProbabilitiesString = useMemo(() => {
+    if (!prediction.classProbabilities) return "";
+    return Object.entries(prediction.classProbabilities)
+      .sort(([, a], [, b]) => b - a) // Sort by probability desc
+      .slice(0, 3) // Take top 3
+      .map(([label, prob]) => `${label}: ${(prob * 100).toFixed(1)}%`)
+      .join("\n");
+  }, [prediction.classProbabilities]);
+
+  return (
+    <div 
+      title={classProbabilitiesString ? `Class Probabilities:\n${classProbabilitiesString}` : "No class probabilities available"}
+      className={cn(
+      "p-4 rounded-lg border border-slate-700/50 bg-slate-900/50 backdrop-blur-sm",
+      "transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10",
+      "hover:border-cyan-500/30 hover:bg-slate-800/60",
+      "relative overflow-hidden group"
+    )}>
+      {/* Cyber glow effect */}
+      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      
+      <div className="flex items-start justify-between gap-3 relative z-10">
+        <div className="flex items-start gap-3 flex-1">
+          <div className="relative">
+            <TypeIcon className={cn(
+              "w-5 h-5 mt-0.5 transition-all duration-300",
+              "text-cyan-400 group-hover:text-cyan-300",
+              "drop-shadow-[0_0_4px_rgba(34,211,238,0.4)]"
+            )} />
+            {/* Pulsing dot indicator */}
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <h4 className="font-medium text-sm text-slate-200 group-hover:text-white transition-colors">
+                {prediction.modelName} {/* Already includes attackType */}
+              </h4>
+              <Badge variant="outline" className={cn(
+                "text-xs border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
+                "hover:bg-cyan-500/20 transition-colors"
+              )}>
+                {typeConfig.label}
+              </Badge>
+              {prediction.anomalyDetected && (
+                 <Badge variant="outline" className="text-xs border-orange-500/50 bg-orange-500/10 text-orange-300">
+                   Anomaly
+                 </Badge>
+              )}
+              {/* isCorrect logic removed as it's not in DisplayablePrediction for now */}
+            </div>
+            
+            <div className="space-y-1 mb-3">
+              <p className="text-sm">
+                <span className="text-slate-400 font-mono">PREDICTION:</span>{' '}
+                <span className="font-medium text-slate-200 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
+                  {prediction.predictedLabel}
+                </span>
+              </p>
+              {/* actualValue logic removed as it's not in DisplayablePrediction for now */}
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs text-slate-400 font-mono">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-cyan-400" />
+                {formatTimestamp(prediction.timestamp)}
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-1 h-1 bg-cyan-400 rounded-full animate-pulse" />
+                CONFIDENCE: {(prediction.confidence * 100).toFixed(1)}%
+              </span>
+            </div>
+            
+            {/* Network traffic info */}
+            <div className="flex items-center gap-4 text-xs text-slate-400 font-mono mt-2 pt-2 border-t border-slate-700/30">
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+                SRC: <span className="text-orange-300">{prediction.sourceIp}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                DST: <span className="text-blue-300">{prediction.destinationIp}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="text-right">
+          <div className={cn(
+            "text-lg font-bold font-mono tracking-wider",
+            "text-transparent bg-clip-text bg-gradient-to-r",
+            prediction.confidence >= 0.8 ? "from-green-400 to-cyan-400" :
+            prediction.confidence >= 0.6 ? "from-yellow-400 to-orange-400" :
+            "from-red-400 to-pink-400",
+            "drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]"
+          )}>
+            {(prediction.confidence * 100).toFixed(1)}%
+          </div>
+          <div className="text-xs text-slate-500 font-mono tracking-wide">
+            CONFIDENCE
+          </div>
+          
+          {/* Confidence level indicator bars */}
+          <div className="flex gap-0.5 mt-2 justify-end">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "w-1 h-3 rounded-full transition-all duration-300",
+                  i < Math.floor(prediction.confidence * 5) 
+                    ? "bg-cyan-400 shadow-[0_0_4px_rgba(34,211,238,0.6)]" 
+                    : "bg-slate-700"
+                )}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Bottom border accent */}
+      <div className={cn(
+        "absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r",
+        "from-transparent via-cyan-500/50 to-transparent",
+        "opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+      )} />
+    </div>
+  );
+});
 
 interface MLModel {
   id: string;
@@ -194,43 +309,44 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
   ]);
 
     const displayablePredictions = useMemo((): DisplayablePrediction[] => {
-      if (!predictionsData || !Array.isArray(predictionsData?.prediction)) return [];
+      if (!predictionsData || !Array.isArray(predictionsData)) return [];
 
-      const allPreds: DisplayablePrediction[] = [];
-
-      predictionsData.prediction.forEach((payload) => {
-        const type = payload.type || 'Unknown';
-        if (Array.isArray(payload.predictions)) {
-          payload.predictions.forEach((p: any) => {
-            let predictionTypeLabel: DisplayablePrediction['predictionType'] = 'classification';
-            if (type.toLowerCase().includes('threat') || p.predicted_label?.toLowerCase() !== 'benign') {
-              predictionTypeLabel = 'threat';
-            } else if (p.anomaly_detected) {
-              predictionTypeLabel = 'anomaly';
-            }
-
-            allPreds.push({
-              id: `${type}-${p.index}`,
-              modelName: type.replace(/_/g, ' ')
-                            .replace('predictions', '')
-                            .trim()
-                            .split(' ')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' '),
-              predictionType: predictionTypeLabel,
-              confidence: p.confidence,
-              prediction: p.predicted_label,
-              timestamp: payload.last_modified,
-              anomalyDetected: p.anomaly_detected,
-            });
-          });
+      const allPreds: DisplayablePrediction[] = predictionsData.map((alert: IMLAlert) => {
+        let uiPredictionType: DisplayablePrediction['predictionType'] = 'classification';
+        if (alert.prediction.anomaly_detected) {
+          uiPredictionType = 'anomaly';
         }
+        // If predicted label is not BENIGN, or if it's a known attack type, consider it a threat for UI purposes
+        if (alert.prediction.predicted_label && alert.prediction.predicted_label.toUpperCase() !== 'BENIGN') {
+          uiPredictionType = 'threat';
+        } else if (['port scan', 'brute force', 'web attack', 'ddos', 'dos'].includes(alert.type.toLowerCase())) {
+          uiPredictionType = 'threat';
+        }
+
+        return {
+          id: alert.id || `${new Date(alert.timestamp).getTime()}-${alert.type}`, // Use existing id or generate one
+          modelName: `${alert.type} Scanner`, // Or a more sophisticated naming based on alert.type
+          attackType: alert.type,
+          predictionType: uiPredictionType,
+          confidence: alert.prediction.confidence,
+          predictedLabel: alert.prediction.predicted_label,
+          timestamp: alert.timestamp,
+          anomalyDetected: alert.prediction.anomaly_detected,
+          sourceIp: alert.source_ip,
+          destinationIp: alert.destination_ip,
+          classProbabilities: alert.prediction.class_probabilities,
+          // trueLabel: alert.prediction.true_label, // Uncomment if needed
+        };
       });
 
-      dispatch(addThreats(allPreds.length));
+      // Dispatching total number of alerts (which could be interpreted as threats)
+      // This logic might need adjustment based on what `addThreats` expects or if numThreats should be more specific
+      dispatch(addThreats(allPreds.length)); 
+      
+      // Already sorted by Redux slice, but re-sorting here won't harm if needed, though ideally source is sorted.
       return allPreds.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    }, [predictionsData]);
+    }, [predictionsData, dispatch]);
 
 
 
@@ -297,54 +413,98 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
 
   // PredictionItem component needs to be updated to use DisplayablePrediction type
   // const PredictionItem: React.FC<{ prediction: DisplayablePrediction }> = ({ prediction }) => {
-  //   // Determine typeConfig based on DisplayablePrediction's predictionType
-  //   // The original MLPrediction interface had a more detailed 'predictionType'
-  //   // We'll map based on what we have.
-  //   let typeKey: keyof typeof modelTypeConfig = 'classification'; // Default
-  //   if (prediction.predictionType === 'threat') typeKey = 'threat';
-  //   else if (prediction.predictionType === 'anomaly') typeKey = 'anomaly';
-    
-  //   const typeConfig = modelTypeConfig[typeKey];
+  //   const typeConfig = modelTypeConfig[prediction.predictionType]; // Uses 'threat', 'anomaly', 'classification'
   //   const TypeIcon = typeConfig.icon;
 
+  //   // Determine if the prediction was "correct" based on true_label vs predicted_label if available
+  //   // For now, isCorrect is not part of DisplayablePrediction, so this part is illustrative
+  //   // const isCorrect = prediction.trueLabel && prediction.predictedLabel && prediction.trueLabel === prediction.predictedLabel;
 
   //   return (
   //     <div className={cn(
-  //       "p-4 rounded-lg border transition-all hover:shadow-md",
-  //       getConfidenceBgColor(prediction.confidence) // Ensure this function exists or is adapted
+  //       "p-4 rounded-lg border border-slate-700/50 bg-slate-900/50 backdrop-blur-sm",
+  //       "transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10",
+  //       "hover:border-cyan-500/30 hover:bg-slate-800/60",
+  //       "relative overflow-hidden group"
   //     )}>
-  //       <div className="flex items-start justify-between gap-3">
+  //       {/* Cyber glow effect */}
+  //       <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        
+  //       <div className="flex items-start justify-between gap-3 relative z-10">
   //         <div className="flex items-start gap-3 flex-1">
-  //           <TypeIcon className={cn("w-5 h-5 mt-0.5", typeConfig.color)} />
+  //           <div className="relative">
+  //             <TypeIcon className={cn(
+  //               "w-5 h-5 mt-0.5 transition-all duration-300",
+  //               "text-cyan-400 group-hover:text-cyan-300",
+  //               "drop-shadow-[0_0_4px_rgba(34,211,238,0.4)]"
+  //             )} />
+  //             <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+  //           </div>
             
   //           <div className="flex-1 min-w-0">
   //             <div className="flex items-center gap-2 mb-2">
-  //               <h4 className="font-medium text-sm">{prediction.modelName}</h4>
-  //               <Badge variant="outline" className="text-xs">
+  //               <h4 className="font-medium text-sm text-slate-200 group-hover:text-white transition-colors">
+  //                 {prediction.modelName} ({prediction.attackType})
+  //               </h4>
+  //               <Badge variant="outline" className={cn(
+  //                 "text-xs border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
+  //                 "hover:bg-cyan-500/20 transition-colors"
+  //               )}>
   //                 {typeConfig.label}
   //               </Badge>
   //               {prediction.anomalyDetected && (
-  //                 <Badge variant="outline" className="text-xs border-orange-500 text-orange-500">
+  //                 <Badge variant="outline" className="text-xs border-orange-500/50 bg-orange-500/10 text-orange-300">
   //                   Anomaly
   //                 </Badge>
   //               )}
+  //                {/* Example for showing if prediction was correct - needs trueLabel in DisplayablePrediction
+  //               {isCorrect !== undefined && (
+  //                 isCorrect ? 
+  //                   <CheckCircle className="w-4 h-4 text-green-400 drop-shadow-[0_0_4px_rgba(34,197,94,0.4)]" /> :
+  //                   <XCircle className="w-4 h-4 text-red-400 drop-shadow-[0_0_4px_rgba(239,68,68,0.4)]" />
+  //               )}
+  //               */}
   //             </div>
               
   //             <div className="space-y-1 mb-3">
   //               <p className="text-sm">
-  //                 <span className="text-muted-foreground">Prediction:</span>{' '}
-  //                 <span className="font-medium">{prediction.prediction}</span>
+  //                 <span className="text-slate-400 font-mono">PREDICTION:</span>{' '}
+  //                 <span className="font-medium text-slate-200 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
+  //                   {prediction.predictedLabel}
+  //                 </span>
   //               </p>
+  //               {/* Example for showing true label
+  //               {prediction.trueLabel && (
+  //                 <p className="text-sm">
+  //                   <span className="text-slate-400 font-mono">TRUE LABEL:</span>{' '}
+  //                   <span className="font-medium text-slate-200 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
+  //                     {prediction.trueLabel}
+  //                   </span>
+  //                 </p>
+  //               )}
+  //               */}
   //             </div>
               
-  //             <div className="flex items-center gap-4 text-xs text-muted-foreground">
+  //             <div className="flex items-center gap-4 text-xs text-slate-400 font-mono">
   //               <span className="flex items-center gap-1">
-  //                 <Clock className="w-3 h-3" />
-  //                 {/* Using ISO string directly, formatTimestamp can be re-applied if needed */}
-  //                 {new Date(prediction.timestamp).toLocaleString()} 
+  //                 <Clock className="w-3 h-3 text-cyan-400" />
+  //                 {formatTimestamp(prediction.timestamp)}
   //               </span>
-  //               <span>
-  //                 Confidence: {(prediction.confidence * 100).toFixed(1)}%
+  //               <span className="flex items-center gap-1">
+  //                 <div className="w-1 h-1 bg-cyan-400 rounded-full animate-pulse" />
+  //                 CONFIDENCE: {(prediction.confidence * 100).toFixed(1)}%
+  //               </span>
+  //             </div>
+              
+  //             {/* Network traffic info */}
+  //             <div className="flex items-center gap-4 text-xs text-slate-400 font-mono mt-2 pt-2 border-t border-slate-700/30">
+  //               <span className="flex items-center gap-1">
+  //                 <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+  //                 SRC: <span className="text-orange-300">{prediction.sourceIp}</span>
+  //               </span>
+  //               <span className="flex items-center gap-1">
+  //                 <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+  //                 DST: <span className="text-blue-300">{prediction.destinationIp}</span>
   //               </span>
   //             </div>
   //           </div>
@@ -352,14 +512,42 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
           
   //         <div className="text-right">
   //           <div className={cn(
-  //             "text-lg font-bold",
-  //             getConfidenceColor(prediction.confidence) // Ensure this function exists or is adapted
+  //             "text-lg font-bold font-mono tracking-wider",
+  //             "text-transparent bg-clip-text bg-gradient-to-r",
+  //             prediction.confidence >= 0.8 ? "from-green-400 to-cyan-400" :
+  //             prediction.confidence >= 0.6 ? "from-yellow-400 to-orange-400" :
+  //             "from-red-400 to-pink-400",
+  //             "drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]"
   //           )}>
   //             {(prediction.confidence * 100).toFixed(1)}%
   //           </div>
-  //           <div className="text-xs text-muted-foreground">Confidence</div>
+  //           <div className="text-xs text-slate-500 font-mono tracking-wide">
+  //             CONFIDENCE
+  //           </div>
+            
+  //           {/* Confidence level indicator bars */}
+  //           <div className="flex gap-0.5 mt-2 justify-end">
+  //             {[...Array(5)].map((_, i) => (
+  //               <div
+  //                 key={i}
+  //                 className={cn(
+  //                   "w-1 h-3 rounded-full transition-all duration-300",
+  //                   i < Math.floor(prediction.confidence * 5) 
+  //                     ? "bg-cyan-400 shadow-[0_0_4px_rgba(34,211,238,0.6)]" 
+  //                     : "bg-slate-700"
+  //                 )}
+  //               />
+  //             ))}
+  //           </div>
   //         </div>
   //       </div>
+        
+  //       {/* Bottom border accent */}
+  //       <div className={cn(
+  //         "absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r",
+  //         "from-transparent via-cyan-500/50 to-transparent",
+  //         "opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+  //       )} />
   //     </div>
   //   );
   // };
@@ -428,12 +616,23 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
     );
   };
 
-  const PredictionItem: React.FC<{ prediction: MLPrediction }> = ({ prediction }) => {
+  const PredictionItem: React.FC<{ prediction: DisplayablePrediction }> = ({ prediction }) => { // Changed prop type to DisplayablePrediction
   const typeConfig = modelTypeConfig[prediction.predictionType];
   const TypeIcon = typeConfig.icon;
 
+  const classProbabilitiesString = useMemo(() => {
+    if (!prediction.classProbabilities) return "";
+    return Object.entries(prediction.classProbabilities)
+      .sort(([, a], [, b]) => b - a) // Sort by probability desc
+      .slice(0, 3) // Take top 3
+      .map(([label, prob]) => `${label}: ${(prob * 100).toFixed(1)}%`)
+      .join("\n");
+  }, [prediction.classProbabilities]);
+
   return (
-    <div className={cn(
+    <div 
+      title={classProbabilitiesString ? `Class Probabilities:\n${classProbabilitiesString}` : "No class probabilities available"}
+      className={cn(
       "p-4 rounded-lg border border-slate-700/50 bg-slate-900/50 backdrop-blur-sm",
       "transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10",
       "hover:border-cyan-500/30 hover:bg-slate-800/60",
@@ -457,7 +656,7 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <h4 className="font-medium text-sm text-slate-200 group-hover:text-white transition-colors">
-                {prediction.modelName}
+                {prediction.modelName} {/* Already includes attackType */}
               </h4>
               <Badge variant="outline" className={cn(
                 "text-xs border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
@@ -465,28 +664,22 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
               )}>
                 {typeConfig.label}
               </Badge>
-              {prediction.isCorrect !== undefined && (
-                prediction.isCorrect ? 
-                  <CheckCircle className="w-4 h-4 text-green-400 drop-shadow-[0_0_4px_rgba(34,197,94,0.4)]" /> :
-                  <XCircle className="w-4 h-4 text-red-400 drop-shadow-[0_0_4px_rgba(239,68,68,0.4)]" />
+              {prediction.anomalyDetected && (
+                 <Badge variant="outline" className="text-xs border-orange-500/50 bg-orange-500/10 text-orange-300">
+                   Anomaly
+                 </Badge>
               )}
+              {/* isCorrect logic removed as it's not in DisplayablePrediction for now */}
             </div>
             
             <div className="space-y-1 mb-3">
               <p className="text-sm">
                 <span className="text-slate-400 font-mono">PREDICTION:</span>{' '}
                 <span className="font-medium text-slate-200 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
-                  {prediction.prediction}
+                  {prediction.predictedLabel}
                 </span>
               </p>
-              {prediction.actualValue && (
-                <p className="text-sm">
-                  <span className="text-slate-400 font-mono">ACTUAL:</span>{' '}
-                  <span className="font-medium text-slate-200 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
-                    {prediction.actualValue}
-                  </span>
-                </p>
-              )}
+              {/* actualValue logic removed as it's not in DisplayablePrediction for now */}
             </div>
             
             <div className="flex items-center gap-4 text-xs text-slate-400 font-mono">
@@ -504,11 +697,11 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
             <div className="flex items-center gap-4 text-xs text-slate-400 font-mono mt-2 pt-2 border-t border-slate-700/30">
               <span className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-                SRC: <span className="text-orange-300">{ prediction?.alert?.source_ip}</span>
+                SRC: <span className="text-orange-300">{prediction.sourceIp}</span>
               </span>
               <span className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                DST: <span className="text-blue-300">{predictionsData?.destination_ip}</span>
+                DST: <span className="text-blue-300">{prediction.destinationIp}</span>
               </span>
             </div>
           </div>
@@ -570,22 +763,6 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
       </Card>
     );
   }
-
-  // if (error) {
-  //   return (
-  //     <Card className="w-full">
-  //       <CardHeader>
-  //         <CardTitle className="text-lg flex items-center gap-2">
-  //           <Brain className="w-5 h-5 text-purple-600" />
-  //           ML Model Predictions & Performance
-  //         </CardTitle>
-  //       </CardHeader>
-  //       <CardContent className="flex justify-center items-center h-40">
-  //         <p className="text-red-500">Error loading predictions: {error}</p>
-  //       </CardContent>
-  //     </Card>
-  //   );
-  // }
 
   if (!predictionsData || displayablePredictions.length === 0) {
     return (
@@ -701,26 +878,22 @@ export const MLPredictionsDisplay: React.FC<MLPredictionsDisplayProps> = ({
                 className="text-sm border rounded px-2 py-1"
               >
                 <option value="all">All Prediction Types</option>
-                {/* Populate options from available prediction types in predictionsData */}
-                {predictionsData && Object.keys(predictionsData?.prediction).map((typeKey) => {
-                  // Check if not an error entry
-                  if ('predictions' in predictionsData?.prediction[typeKey]) {
-                    const modelDisplayName = typeKey.replace(/_/g, ' ').replace('predictions', '').trim().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                    return (
-                      <option key={typeKey} value={typeKey}>
-                        {modelDisplayName}
-                      </option>
-                    );
-                  }
-                  return null;
+                {/* Populate options from unique attack types in displayablePredictions */}
+                {Array.from(new Set(displayablePredictions.map(p => p.attackType))).map((typeKey) => {
+                  const modelDisplayName = `${typeKey} Scanner`; // Consistent with modelName generation
+                  return (
+                    <option key={typeKey} value={typeKey.toLowerCase().replace(/\s+/g, '_')}>
+                      {modelDisplayName}
+                    </option>
+                  );
                 })}
               </select>
             </div>
 
             {filteredPredictions.length > 0 ? (
               <div className="space-y-3">
-                {filteredPredictions.map((prediction) => (
-                  <PredictionItem key={prediction.id} prediction={prediction} />
+                {filteredPredictions.map((item) => ( // Renamed to item to avoid conflict with PredictionItem component
+                  <PredictionItem key={item.id} prediction={item} />
                 ))}
               </div>
             ) : (

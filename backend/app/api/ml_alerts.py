@@ -20,9 +20,8 @@ async def kali_linux(request: Request):
     try:
         data = await request.json()
         attack_type = data.get("type")
-        src_ip = data.get("src_ip")
-        dst_ip = data.get("dst_ip")
-        print("Alert received: ", data)
+        src_ip = data.get("source")
+        dst_ip = data.get("destination")
 
         if attack_type in PREDICTIONS_PATHS:
             pred_path = PREDICTIONS_PATHS[attack_type]
@@ -49,6 +48,7 @@ async def kali_linux(request: Request):
                     {**item, "timestamp": timestamp} for item in combined_batch
                 ]
                 await sio.emit("new_ml_alert", combined_batch_with_timestamp)
+                print(f"Sent batch of predictions for {combined_batch}")
 
                 return JSONResponse(
                     content={"status": "ok", "message": "Batch of predictions sent."},

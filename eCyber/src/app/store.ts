@@ -16,6 +16,7 @@ import {
   networkInterfaceReducer,
   mlNOtificationsReducer
 } from './slices/realtimeDataSlice';
+import mlAlertsReducer from './slices/mlAlertsSlice'; // Import the new reducer
 
 import 
   displaySliceReducer
@@ -37,7 +38,8 @@ export const store = configureStore({
     phishingDetections: phishingDetectionsReducer,
     threatResponses: threatResponsesReducer,
     quarantinedFiles: quarantinedFilesReducer,
-    mlNotifications: mlNOtificationsReducer
+    mlNotifications: mlNOtificationsReducer,
+    mlAlerts: mlAlertsReducer, // Add the new reducer here
   },
 })
 

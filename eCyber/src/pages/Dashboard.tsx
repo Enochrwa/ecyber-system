@@ -118,21 +118,16 @@ const routeToTabMap = {
   '/settings': 'settings'
 };
 
-// Define IMLAlert structure matching backend payload, if not already globally available
-interface IMLAlert {
-  type: string; // Attack type like "Port Scan", "Brute Force"
-  source_ip: string;
-  destination_ip: string;
-  prediction: any; // Or a more specific type if prediction structure is known
-  timestamp: string; // ISO string from backend
-}
+import { IMLAlert, selectAllMlAlerts, selectMlAlertsError } from '@/app/slices/mlAlertsSlice'; // Import Redux selector and IMLAlert type
 
 
-const Dashboard = () => { // Removed mlAlerts prop
+const Dashboard = () => { 
   const location = useLocation();
   const navigate = useNavigate();
-  const { socket } = useSocket(); // Use the general socket hook
+  // const { socket } = useSocket(); // This socket instance might not be needed here if App.tsx handles all incoming socket data for ML alerts
 
+  const mlAlertsFromRedux = useSelector(selectAllMlAlerts);
+  const mlAlertsErrorFromRedux = useSelector(selectMlAlertsError);
 
   const networkVolume = useSelector((state:RootState) => state.networkVolume.networkVolume);
 
@@ -226,15 +221,11 @@ const Dashboard = () => { // Removed mlAlerts prop
   const [isLoadingGeneralSettings, setIsLoadingGeneralSettings] = useState<boolean>(true);
   const [errorGeneralSettings, setErrorGeneralSettings] = useState<string | null>(null);
 
-  // State for ML Predictions, now sourced from socket & local storage
-  // This structure might need to be adjusted based on how `MLPredictionsDisplay` expects data.
-  // For now, it will be an array of IMLAlert.
-  const [mlPredictionsData, setMlPredictionsData] = useState<IMLAlert[]>(() => {
-    const storedPredictions = localStorage.getItem("mlAlerts"); // Assuming App.tsx stores with this key
-    return storedPredictions ? JSON.parse(storedPredictions) : [];
-  });
-  const [isLoadingMlPredictions, setIsLoadingMlPredictions] = useState<boolean>(false); // Initially false, true if we need a loading state for socket data
-  const [errorMlPredictions, setErrorMlPredictions] = useState<string | null>(null);
+  // State for ML Predictions is now primarily from Redux: mlAlertsFromRedux
+  // isLoadingMlPredictions and errorMlPredictions can be derived or managed based on Redux state if needed,
+  // For now, we'll pass the error from Redux directly. Loading state can be assumed false once data is present or error occurs.
+  const isLoadingMlPredictions = false; // Or derive from a Redux loading state if you add one
+  // const errorMlPredictions = mlAlertsErrorFromRedux; // This is already available as mlAlertsErrorFromRedux
 
 
   const numThreats = useSelector((state: RootState) => state.display.numThreats)
@@ -268,40 +259,8 @@ const Dashboard = () => { // Removed mlAlerts prop
   }, [offline, getSocket]); // Added getSocket to dependency array
 
 
-  // Effect for handling 'new_ml_alert' from the general socket
-  useEffect(() => {
-    if (socket) {
-      const handleNewMlAlert = (mlAlertBatch: IMLAlert | IMLAlert[]) => {
-        const alertsArray = Array.isArray(mlAlertBatch) ? mlAlertBatch : [mlAlertBatch];
-        
-        setMlPredictionsData(prevPredictions => {
-          const updatedPredictions = [...alertsArray, ...prevPredictions]
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          // Optional: Limit stored predictions here if needed, though App.tsx might already do this for "mlAlerts"
-          // const MAX_DISPLAY_PREDICTIONS = 50; 
-          // return updatedPredictions.slice(0, MAX_DISPLAY_PREDICTIONS);
-          return updatedPredictions;
-        });
-        // No need to dispatch event for Header, it listens directly
-      };
-
-      socket.on('new_ml_alert', handleNewMlAlert);
-      // Also, update from localStorage initially and on changes if App.tsx is the sole writer
-      // This ensures Dashboard is in sync if it mounts after App.tsx has updated localStorage.
-      const handleStorageChange = () => {
-        const storedPredictions = localStorage.getItem("mlAlerts");
-        setMlPredictionsData(storedPredictions ? JSON.parse(storedPredictions) : []);
-      };
-      window.addEventListener('storage', handleStorageChange);
-
-
-      // Cleanup listener on component unmount or if socket changes
-      return () => {
-        socket.off('new_ml_alert', handleNewMlAlert);
-        window.removeEventListener('storage', handleStorageChange);
-      };
-    }
-  }, [socket]); // Re-run if socket instance changes
+  // Removed useEffect for handling 'new_ml_alert' socket events and 'storage' event.
+  // This is now handled by App.tsx dispatching to Redux, and Dashboard consuming from Redux.
 
 
   // Fetch Other API Data (Emerging Threats, User Summary, etc.) - This useEffect remains largely the same
@@ -989,9 +948,9 @@ const Dashboard = () => { // Removed mlAlerts prop
                 {/* ML Predictions Display */}
                 <div className="mb-6">
                   <MLPredictionsDisplay 
-                    predictionsData={mlPredictionsData}
-                    isLoading={isLoadingMlPredictions}
-                    error={errorMlPredictions}
+                    predictionsData={mlAlertsFromRedux}
+                    isLoading={isLoadingMlPredictions} // This can be enhanced with a loading state from Redux if needed
+                    error={mlAlertsErrorFromRedux}
                   />
                 </div>
 

@@ -346,9 +346,9 @@ async def create_app() -> FastAPI:
             # await loop.run_in_executor(None, sniffer.start, "Wi-Fi"
             await sniffer_service.start()
             await sniffer.start("Ethernet 4")
-            # await monitor.start()
+            await monitor.start()
             # await ips.start()
-            # logger.info("System monitoring started")
+            logger.info("System monitoring started")
             # Start packet sniffer with IPS integration
 
             # Start IPS updates task
@@ -412,8 +412,8 @@ async def create_app() -> FastAPI:
             #     await app.state.phishing_blocker.stop()
             #     logger.info("PhishingBlocker stopped.")
 
-            # if monitor:
-            #     await monitor.stop()
+            if monitor:
+                await monitor.stop()
 
             # # await ips_adapter.stop()
             # # autofill_task.cancel()
@@ -498,7 +498,7 @@ async def _on_start_sniffing(sid, data):
     logger.info(f"User started sniffing on {data.get('sniffingInterface')}")
     global sniffer, sniffer_service
     try:
-        interface = data.get("sniffingInterface", "enp0s8")
+        interface = data.get("sniffingInterface", "Ethernet 4")
         # if sniffer_service:
         #     sniffer_service.stop()
         # if sniffer:

@@ -30,63 +30,38 @@ import RegisterPage from "./pages/Register";
 import CyberLoader from "./utils/Loader"
 // import AuthModal from "./pages/AuthModal";
 // import LoadingSpinner from "./utils/LoadingSpinner";
-import { useSelector, useDispatch } from "react-redux" // Added useDispatch
+import { useSelector, useDispatch } from "react-redux"
 import { RootState } from "@/app/store"
-import { setIsBackendUp } from "@/app/slices/displaySlice"; // Added import for action
-import { checkBackendHealth } from "@/services/api"; // Added import for health check
+import { setIsBackendUp } from "@/app/slices/displaySlice";
+import { checkBackendHealth } from "@/services/api";
 import useSocket from "./hooks/useSocket";
 import { useTelemetrySocket } from "./components/live-system/lib/socket";
 import { useThrottledSocket } from "./hooks/useThrottledSocket";
-
-interface IMLAlert {
-  type: string;
-  source_ip: string;
-  destination_ip: string;
-  prediction: any; // Consider defining a more specific type for prediction
-  timestamp: string;
-}
+import { IMLAlert, addMlAlerts } from "./app/slices/mlAlertsSlice"; // Import IMLAlert and action
 
 const App = () => {
-  const { isConnected, connectionError, socket } = usePacketSniffer();
-  const { socket: socket2 } = useSocket()
-  const { getSocket } = useTelemetrySocket()
-  const rootSocket = getSocket()
+  const { isConnected, connectionError, socket } = usePacketSniffer(); // This socket might be for packet sniffing specifically
+  const { socket: generalSocket } = useSocket(); // General purpose socket, likely for ML alerts etc.
+  const { getSocket } = useTelemetrySocket();
+  const rootSocket = getSocket();
 
   const [showLoader, setShowLoader] = useState(true);
   const dispatch = useDispatch();
   const isBackendUp = useSelector((state: RootState) => state.display.isBackendUp);
-  // Initialize mlAlerts from localStorage
-  const [mlAlerts, setMlAlerts ] = useState<IMLAlert[]>(() => {
-    const storedAlerts = localStorage.getItem("mlAlerts");
-    return storedAlerts ? JSON.parse(storedAlerts) : [];
-  });
+  // ML Alerts state and localStorage persistence are now handled by Redux (mlAlertsSlice)
 
-  const [anomalies, setAnomalies] = useState([]);
+  // const [anomalies, setAnomalies] = useState([]); // If anomalies are derived from mlAlerts, this might also move or use selector
 
   useEffect(() => {
-    // Persist mlAlerts to localStorage whenever it changes
-    localStorage.setItem("mlAlerts", JSON.stringify(mlAlerts));
-  }, [mlAlerts]);
-
-  useEffect(() => {
-    socket2?.on("new_ml_alert", (batch: IMLAlert[] | IMLAlert) => { // Adjusted to handle single or batch
-      setMlAlerts(prevAlerts => {
-        const newAlerts = Array.isArray(batch) ? batch : [batch];
-        // Add new alerts and prevent duplicates based on a unique key if available, e.g., prediction.id + timestamp
-        // For now, just adding, assuming backend might send same alert if not handled there.
-        // A more robust solution would involve a unique ID for each alert.
-        const updatedAlerts = [...prevAlerts, ...newAlerts].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        // Optional: Limit the number of stored alerts to prevent localStorage from growing too large
-        // const MAX_STORED_ALERTS = 200; 
-        // return updatedAlerts.slice(0, MAX_STORED_ALERTS);
-        return updatedAlerts;
-      });
+    // Listen for new ML alerts and dispatch to Redux store
+    generalSocket?.on("new_ml_alert", (batch: IMLAlert | IMLAlert[]) => {
+      dispatch(addMlAlerts(batch));
     });
 
     return () => {
-      socket2?.off("new_ml_alert");
+      generalSocket?.off("new_ml_alert");
     };
-  }, [socket2]); // Dependency array includes socket2 to re-subscribe if it changes
+  }, [generalSocket, dispatch]); // Ensure generalSocket and dispatch are in dependency array
   
   useEffect(() => {
     const performHealthCheck = async () => {
@@ -132,7 +107,7 @@ const App = () => {
         <Route path="/" element={<Index />} />
         <Route path="/loading" element={<CyberLoader />} />
         <Route element={<MainLayout />}>
-          <Route path="/dashboard" element={<Dashboard mlAlerts={mlAlerts} />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/system" element={<System />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/threats" element={<Threats />} />

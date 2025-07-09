@@ -19,6 +19,7 @@ import { Link } from 'react-router-dom';
 
 // import usePacketSnifferSocket from '@/hooks/usePacketSnifferSocket'; // Using general socket for ML alerts
 import useSocket from '@/hooks/useSocket'; // Import the general socket hook
+import { IMLAlert } from '@/app/slices/mlAlertsSlice'; // Import IMLAlert interface
 
 interface NotificationType {
   id: number | string;
@@ -30,14 +31,7 @@ interface NotificationType {
   read: boolean;
 }
 
-// Define IMLAlert structure matching backend payload
-interface IMLAlert {
-  type: string; // Attack type like "Port Scan", "Brute Force"
-  source_ip: string;
-  destination_ip: string;
-  prediction: any; // Or a more specific type if prediction structure is known
-  timestamp: string; // ISO string from backend
-}
+// IMLAlert interface is now imported
 
 const MAX_NOTIFICATIONS = 5;
 
@@ -65,7 +59,7 @@ const Header = () => {
         const newNotifications: NotificationType[] = alertsArray.map((alert, index) => ({
           id: `ml-${alert.timestamp}-${index}`, // Create a unique ID
           name: `ML Alert: ${alert.type}`,
-          description: `Source: ${alert.source_ip}, Destination: ${alert.destination_ip}. Prediction: ${JSON.stringify(alert.prediction).substring(0,50)}...`,
+          description: `Source: ${alert.source_ip}, Destination: ${alert.destination_ip}. Prediction: ${alert.prediction?.true_label}...`,
           severity: alert.prediction?.anomaly_detected || (alert.prediction?.predicted_label && alert.prediction?.predicted_label !== "BENIGN") ? 'warning' : 'info', // Basic severity logic
           timestamp: alert.timestamp,
           type: 'new_ml_alert',
